@@ -1,10 +1,9 @@
-
 <!DOCTYPE html>
 <html lang="pt-BR">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>🌊 Monitor Caixa d'Água - GSM/GPRS</title>
+  <title>🌊 Monitor Caixa d'Água - HiveMQ</title>
   
   <script src="https://unpkg.com/mqtt/dist/mqtt.esm.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
@@ -23,7 +22,6 @@
       --gray: #6c757d;
       --water-blue: #48cae4;
       --water-deep: #0096c7;
-      --gsm-green: #00c853;
     }
 
     * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -53,7 +51,7 @@
       content: '';
       position: absolute;
       top: 0; left: 0; width: 100%; height: 4px;
-      background: linear-gradient(90deg, var(--primary), var(--gsm-green));
+      background: linear-gradient(90deg, var(--primary), #7b2cbf);
     }
 
     .header h1 {
@@ -107,16 +105,6 @@
       box-shadow: 0 4px 12px rgba(230, 57, 70, 0.3);
     }
 
-    .btn-sms {
-      background: var(--gsm-green);
-      color: white;
-    }
-
-    .btn-sms:hover {
-      background: #00a344;
-      transform: translateY(-2px);
-    }
-
     .status-panel {
       display: grid;
       grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
@@ -163,7 +151,7 @@
       width: 4px; background: #e9ecef; border-radius: 2px;
       transition: all 0.3s;
     }
-    .signal-bar-item.active { background: var(--gsm-green); }
+    .signal-bar-item.active { background: var(--primary); }
     .signal-bar-item:nth-child(1) { height: 4px; }
     .signal-bar-item:nth-child(2) { height: 7px; }
     .signal-bar-item:nth-child(3) { height: 10px; }
@@ -181,28 +169,9 @@
       animation: slideInDown 0.5s ease, pulse-border 2s infinite;
     }
     .alert-banner.show { display: block; }
-    
-    /* Alertas específicos para GSM */
-    .alert-gsm-offline { 
-      background: #fecaca; 
-      color: #7f1d1d; 
-      border: 2px solid #ef4444; 
-    }
-    .alert-gsm-low-signal { 
-      background: #fef3c7; 
-      color: #92400e; 
-      border: 2px solid #fbbf24; 
-    }
-    .alert-sensor { 
-      background: #fee2e2; 
-      color: #991b1b; 
-      border: 2px solid #f87171; 
-    }
-    .alert-mega-offline {
-      background: #e0e7ff;
-      color: #3730a3;
-      border: 2px solid #6366f1;
-    }
+    .alert-transmitter { background: #fecaca; color: #7f1d1d; border: 2px solid #ef4444; }
+    .alert-receptor { background: #fee2e2; color: #991b1b; border: 2px solid #f87171; }
+    .alert-sensor { background: #fef3c7; color: #92400e; border: 2px solid #fbbf24; }
 
     @keyframes slideInDown { from { opacity: 0; transform: translateY(-20px); } to { opacity: 1; transform: translateY(0); } }
     @keyframes pulse-border { 0%, 100% { border-width: 2px; } 50% { border-width: 4px; } }
@@ -212,7 +181,7 @@
       grid-template-columns: 1fr 1fr;
       gap: 10px;
       margin-bottom: 10px;
-      align-items: start;
+      align-items: start; /* CORREÇÃO: Evita que os cards estiquem */
     }
 
     @media (max-width: 768px) { 
@@ -224,6 +193,7 @@
       padding: 15px;
       border-radius: 15px;
       box-shadow: 0 5px 20px rgba(0,0,0,0.08);
+      /* CORREÇÃO: Altura máxima e scroll */
       max-height: 500px;
       overflow-y: auto;
       display: flex;
@@ -240,9 +210,10 @@
       color: var(--primary-dark);
       font-size: 1rem;
       font-weight: 600;
-      flex-shrink: 0;
+      flex-shrink: 0; /* Não encolhe */
     }
 
+    /* CORREÇÃO: Container do tanque com altura fixa */
     .tank-wrapper {
       position: relative;
       width: 240px;
@@ -367,6 +338,7 @@
     .tank-capacity-label { font-size: 0.7rem; color: var(--gray); font-weight: 600; text-transform: uppercase; }
     .tank-capacity-value { font-size: 1.2rem; font-weight: 700; color: var(--primary-dark); }
 
+    /* CORREÇÃO: Grid com altura controlada */
     .info-grid {
       display: grid;
       grid-template-columns: repeat(3, 1fr);
@@ -384,7 +356,7 @@
       cursor: pointer;
       transition: all 0.3s;
       border: 2px solid transparent;
-      min-height: 80px;
+      min-height: 80px; /* Altura mínima */
       display: flex;
       flex-direction: column;
       justify-content: center;
@@ -406,6 +378,7 @@
     .info-card.error .info-card-value { color: var(--danger); }
     .info-card.error .info-card-label { color: var(--danger); }
 
+    /* CORREÇÃO: Canvas do gráfico com altura máxima */
     #nivelChart { 
       max-height: 250px !important; 
       height: 250px !important;
@@ -417,7 +390,7 @@
       margin-top: 10px;
       border-radius: 8px;
       border: 1px solid #e9ecef;
-      max-height: 200px;
+      max-height: 200px; /* CORREÇÃO: Altura máxima */
       overflow-y: auto;
     }
     table { width: 100%; border-collapse: collapse; font-size: 0.8rem; }
@@ -436,12 +409,12 @@
     }
     .badge-normal { background: #d4edda; color: #155724; }
     .badge-error { background: #f8d7da; color: #721c24; }
-    .badge-gsm { background: #c8e6c9; color: #1b5e20; }
 
     .signal-cell { display: flex; align-items: center; gap: 8px; }
     .signal-dbm { font-weight: 700; font-size: 0.85rem; color: var(--primary-dark); min-width: 45px; }
     .signal-percent { font-weight: 600; font-size: 0.85rem; color: var(--gray); }
 
+    /* CORREÇÃO: Log de eventos com altura máxima */
     #updateHistory { 
       max-height: 150px; 
       overflow-y: auto;
@@ -460,12 +433,10 @@
     }
     .update-entry.alert { background: #fee2e2; border-left-color: var(--danger); animation: pulse-alert 2s infinite; }
     .update-entry.warning { background: #fef3c7; border-left-color: var(--warning); }
-    .update-entry.gsm { background: #e8f5e9; border-left-color: var(--gsm-green); }
     @keyframes slideIn { from { opacity: 0; transform: translateX(-10px); } to { opacity: 1; transform: translateX(0); } }
     @keyframes pulse-alert { 0%, 100% { background: #fee2e2; } 50% { background: #fecaca; } }
     .update-time { color: var(--primary); font-weight: 600; min-width: 60px; font-size: 0.75rem; }
     .update-entry.alert .update-time { color: var(--danger); }
-    .update-entry.gsm .update-time { color: var(--gsm-green); }
     .update-text { color: var(--dark); flex: 1; }
 
     .log-header {
@@ -530,7 +501,7 @@
     .spinner {
       width: 50px; height: 50px;
       border: 4px solid #f3f3f3;
-      border-top: 4px solid var(--gsm-green);
+      border-top: 4px solid var(--primary);
       border-radius: 50%;
       animation: spin 1s linear infinite;
     }
@@ -545,19 +516,6 @@
     .status-item.sensor-error .status-value {
       color: var(--danger);
     }
-
-    /* Info de operadora */
-    .operadora-badge {
-      display: inline-flex;
-      align-items: center;
-      gap: 5px;
-      background: #e8f5e9;
-      color: #2e7d32;
-      padding: 2px 8px;
-      border-radius: 12px;
-      font-size: 0.7rem;
-      font-weight: 600;
-    }
   </style>
 </head>
 <body>
@@ -568,74 +526,54 @@
 
   <div class="container">
     <div class="header">
-      <h1><i class="fas fa-water"></i> Monitor de Caixa d'Água <span style="font-size:0.7em; color:var(--gsm-green)">[GSM]</span></h1>
+      <h1><i class="fas fa-water"></i> Monitor de Caixa d'Água</h1>
       <div class="mqtt-badge connecting" id="mqttStatus">
         <i class="fas fa-broadcast-tower"></i> <span>Conectando...</span>
       </div>
     </div>
 
-    <!-- Alertas GSM -->
-    <div id="alertGsmOffline" class="alert-banner alert-gsm-offline">
-      <i class="fas fa-signal"></i> MEGA GSM OFFLINE (<span id="timeoutSeconds">0</span>s sem dados)
+    <div id="alertTransmitter" class="alert-banner alert-transmitter">
+      <i class="fas fa-satellite-dish"></i> SEM SINAL DO TRANSMISSOR (<span id="timeoutSeconds">0</span>s)
     </div>
-    
-    <div id="alertGsmLowSignal" class="alert-banner alert-gsm-low-signal">
-      <i class="fas fa-exclamation-triangle"></i> SINAL GSM FRACO (<span id="signalValue">0</span> dBm)
+    <div id="alertReceptor" class="alert-banner alert-receptor">
+      <i class="fas fa-wifi"></i> RECEPTOR DESCONECTADO
     </div>
-    
     <div id="alertSensor" class="alert-banner alert-sensor">
-      <i class="fas fa-microchip"></i> FALHA NO SENSOR ULTRASSÔNICO
+      <i class="fas fa-exclamation-triangle"></i> FALHA NO SENSOR ULTRASSÔNICO
     </div>
 
     <div class="status-panel">
-      <!-- Status MQTT -->
       <div class="status-item">
         <span class="status-label">MQTT Broker:</span>
         <span class="status-value" id="brokerStatus">Conectando...</span>
       </div>
-      
-      <!-- Status MEGA GSM -->
       <div class="status-item">
-        <span class="status-label">MEGA GSM:</span>
-        <span class="status-value" id="megaStatus">Verificando...</span>
+        <span class="status-label">Receptor WiFi:</span>
+        <span class="status-value" id="receptorStatus">Verificando...</span>
       </div>
-      
-      <!-- Operadora -->
       <div class="status-item">
-        <span class="status-label">Operadora:</span>
-        <div style="text-align: right;">
-          <span class="operadora-badge" id="operadoraBadge">
-            <i class="fas fa-sim-card"></i> <span id="operadoraName">--</span>
-          </span>
-        </div>
+        <span class="status-label">LoRa:</span>
+        <span class="status-value" id="loraStatus">Verificando...</span>
       </div>
-      
-      <!-- Sinal GSM -->
       <div class="status-item">
-        <span class="status-label">Sinal GSM:</span>
+        <span class="status-label">Sinal LoRa:</span>
         <div style="text-align: right;">
           <div class="signal-bar" id="signalBar">
             <div class="signal-bar-item"></div><div class="signal-bar-item"></div>
             <div class="signal-bar-item"></div><div class="signal-bar-item"></div>
             <div class="signal-bar-item"></div>
           </div>
-          <div style="font-size: 0.7rem; margin-top: 2px;" id="signalText">-- dBm</div>
+          <div style="font-size: 0.7rem; margin-top: 2px;" id="signalText">0%</div>
         </div>
       </div>
-      
-      <!-- Último Dado -->
       <div class="status-item">
         <span class="status-label">Último Dado:</span>
         <span class="status-value" id="lastUpdate">--:--:--</span>
       </div>
-      
-      <!-- ICCID -->
       <div class="status-item">
-        <span class="status-label">Chip ICCID:</span>
-        <span class="status-value" id="iccidPrefix" style="font-size:0.75rem;">--</span>
+        <span class="status-label">WiFi Receptor:</span>
+        <span class="status-value" id="wifiRssi">-- dBm</span>
       </div>
-      
-      <!-- Sensor -->
       <div class="status-item" id="sensorStatusItem">
         <span class="status-label"><i class="fas fa-microchip"></i> Sensor:</span>
         <span class="status-value" id="sensorStatus">Verificando...</span>
@@ -643,7 +581,6 @@
     </div>
 
     <div class="main-content">
-      <!-- Card do Tanque -->
       <div class="card">
         <div class="card-header">
           <i class="fas fa-tint"></i> Status da Caixa
@@ -690,7 +627,6 @@
         </div>
       </div>
 
-      <!-- Card do Gráfico -->
       <div class="card">
         <div class="card-header">
           <i class="fas fa-chart-line"></i> Histórico (24h)
@@ -699,7 +635,6 @@
       </div>
     </div>
 
-    <!-- Histórico -->
     <div class="card" style="margin-bottom: 10px; max-height: 300px;">
       <div class="card-header">
         <i class="fas fa-history"></i> Últimas Leituras
@@ -717,7 +652,7 @@
                 <th>Nível</th>
                 <th>Volume</th>
                 <th>Dist.</th>
-                <th>Sinal GSM</th>
+                <th>Sinal LoRa</th>
               </tr>
             </thead>
             <tbody id="historyBody"></tbody>
@@ -726,30 +661,23 @@
       </div>
     </div>
 
-    <!-- Log e Comandos -->
     <div class="card" style="max-height: 250px;">
       <div class="log-header">
         <div class="card-header" style="margin: 0;">
-          <i class="fas fa-bell"></i> Log de Eventos
+          <i class="fas fa-bell"></i> Log de Eventos MQTT
         </div>
-        <div style="display: flex; gap: 8px;">
-          <button class="btn btn-sms" onclick="solicitarDados()">
-            <i class="fas fa-sms"></i> Solicitar Dados
-          </button>
-          <button class="btn btn-reboot" onclick="confirmarReboot()">
-            <i class="fas fa-power-off"></i> Reiniciar
-          </button>
-        </div>
+        <button class="btn btn-reboot" onclick="confirmarReboot()">
+          <i class="fas fa-power-off"></i> Reiniciar Receptor
+        </button>
       </div>
       <div id="updateHistory"></div>
     </div>
   </div>
 
-  <!-- Modal de Reboot -->
   <div id="modalReboot" class="modal">
     <div class="modal-content">
-      <h3><i class="fas fa-exclamation-triangle"></i> Reiniciar MEGA?</h3>
-      <p>O dispositivo Arduino Mega será reiniciado remotamente via MQTT. Pode levar 30 segundos.</p>
+      <h3><i class="fas fa-exclamation-triangle"></i> Reiniciar Receptor?</h3>
+      <p>O dispositivo ESP32 será reiniciado remotamente via MQTT. Isso pode levar 30 segundos.</p>
       <div class="modal-buttons">
         <button class="btn btn-cancel" onclick="fecharModal()">Cancelar</button>
         <button class="btn btn-confirm" onclick="executarReboot()">Sim, Reiniciar</button>
@@ -769,7 +697,7 @@
       port: 8884,
       username: 'esp32-receptor',
       password: '061084Cc@',
-      clientId: 'gsm-dashboard-' + Math.random().toString(16).substr(2, 8)
+      clientId: 'github-dashboard-' + Math.random().toString(16).substr(2, 8)
     };
 
     const TOPICS = {
@@ -778,10 +706,9 @@
       comandos: 'caixas/agua/comandos'
     };
 
-    // Timeouts para GSM (mais tolerantes que LoRa)
-    const MEGA_TIMEOUT = 90000;      // 90s sem dados = offline (GSM tem delay maior)
-    const LOW_SIGNAL_THRESHOLD = -100; // dBm
-    const STORAGE_KEY = 'mega_timeout_state';
+    const TRANSMITTER_TIMEOUT = 15000;
+    const RECEPTOR_TIMEOUT = 60000; // 60 segundos sem heartbeat = offline
+    const STORAGE_KEY = 'transmitter_timeout_state';
 
     let client = null;
     let chart = null;
@@ -789,10 +716,13 @@
     let currentData = {};
     let historico = [];
     let lastDataMessageTime = null;
-    let megaOnline = false;
+    let lastReceptorStatusTime = null; // NOVO: Track do último status do receptor
+    let receptorOnline = false;
+    let transmitterActive = false;
     let timeoutCheckInterval = null;
     let secondsWithoutData = 0;
     let sensorErrorActive = false;
+    let sensorErrorCount = 0;
     let ultimoValorValido = null;
     let leiturasConsecutivasErradas = 0;
 
@@ -817,7 +747,9 @@
         
         client.subscribe([TOPICS.dados, TOPICS.status], (err) => {
           if (!err) {
-            adicionarLog('✅ Dashboard conectado ao GSM/GPRS', 'gsm');
+            adicionarLog('✅ Dashboard conectado');
+            // CORREÇÃO: Considera receptor online ao conectar se já recebe dados
+            lastReceptorStatusTime = Date.now();
           }
         });
       });
@@ -831,13 +763,15 @@
             lastDataMessageTime = Date.now();
             secondsWithoutData = 0;
             
-            // Atualizar status MEGA
-            if (!megaOnline) {
-              megaOnline = true;
-              atualizarStatusMega(true);
+            // CORREÇÃO: Se recebeu dados, receptor está online!
+            // Atualiza status do receptor baseado em receber dados
+            if (!receptorOnline) {
+              receptorOnline = true;
+              atualizarStatusReceptor(true, 'Online (recebendo dados)');
             }
+            lastReceptorStatusTime = Date.now();
             
-            // Verificar sensor
+            // Verificação do sensor
             let sensorOK = payload.sensor_ok;
             const distancia = parseFloat(payload.distance);
             const percentual = parseInt(payload.percentage);
@@ -846,14 +780,11 @@
               if (distancia < 0 || distancia === 0 || percentual < 0) {
                 sensorOK = false;
               }
-            }
-            
-            // Verificar sinal GSM baixo
-            const sinalGsm = payload.signal_gsm || -113;
-            if (sinalGsm < LOW_SIGNAL_THRESHOLD && sinalGsm > -120) {
-              mostrarAlertaSinalBaixo(sinalGsm);
-            } else {
-              esconderAlertaSinalBaixo();
+              
+              if (ultimoValorValido !== null) {
+                const variacao = percentual - ultimoValorValido.percentage;
+                if (variacao < -50) sensorOK = false;
+              }
             }
             
             if (sensorOK) {
@@ -868,24 +799,18 @@
               leiturasConsecutivasErradas++;
             }
             
-            if (!sensorErrorActive && leiturasConsecutivasErradas >= 1) {
-              sensorErrorActive = true;
-              adicionarLog('🚨 Falha no sensor detectada!', 'alert');
-              mostrarAlertaSensor();
+            if (!transmitterActive) {
+              transmitterActive = true;
+              adicionarLog('✅ Sinal do transmissor restaurado');
+              esconderAlertaTransmitter();
             }
             
-            processarDados(payload, sensorOK, sinalGsm);
+            processarDados(payload, sensorOK);
             
           } else if (topic === TOPICS.status) {
-            // Heartbeat do MEGA
-            lastDataMessageTime = Date.now();
-            if (!megaOnline) {
-              megaOnline = true;
-              atualizarStatusMega(true);
-            }
-            if (payload.status === 'online') {
-              adicionarLog('💓 MEGA online (heartbeat)', 'gsm');
-            }
+            // Mensagem explícita de status do receptor
+            lastReceptorStatusTime = Date.now();
+            processarStatus(payload);
           }
         } catch (e) {
           console.error('❌ Erro:', e);
@@ -893,18 +818,34 @@
       });
     }
 
-    function atualizarStatusMega(online) {
-      const megaStatus = document.getElementById('megaStatus');
+    // CORREÇÃO: Função unificada para atualizar status do receptor
+    function atualizarStatusReceptor(online, texto) {
+      const receptorStatus = document.getElementById('receptorStatus');
+      receptorOnline = online;
       
       if (online) {
-        megaStatus.textContent = 'Online';
-        megaStatus.className = 'status-value online';
-        document.getElementById('alertGsmOffline').classList.remove('show');
+        receptorStatus.textContent = texto || 'Online';
+        receptorStatus.className = 'status-value online';
+        document.getElementById('alertReceptor').classList.remove('show');
       } else {
-        megaStatus.textContent = 'Offline';
-        megaStatus.className = 'status-value offline';
-        document.getElementById('alertGsmOffline').classList.add('show');
-        adicionarLog('⚠️ MEGA GSM offline', 'alert');
+        receptorStatus.textContent = 'Offline';
+        receptorStatus.className = 'status-value offline';
+        document.getElementById('alertReceptor').classList.add('show');
+      }
+    }
+
+    function processarStatus(payload) {
+      // Processa mensagem explícita de status do tópico status
+      if (payload.status === 'online' || payload.heartbeat === true) {
+        atualizarStatusReceptor(true, payload.status === 'online' ? 'Online' : 'Online (heartbeat)');
+        
+        // Se tem heartbeat, receptor está definitivamente online
+        if (payload.heartbeat) {
+          console.log('💓 Heartbeat do receptor recebido');
+        }
+      } else if (payload.status === 'offline') {
+        atualizarStatusReceptor(false);
+        adicionarLog('⚠️ Receptor reportou offline', 'warning');
       }
     }
 
@@ -914,37 +855,38 @@
       timeoutCheckInterval = setInterval(() => {
         const agora = Date.now();
         
+        // Verifica timeout do transmissor (dados)
         if (lastDataMessageTime) {
           const tempoSemDados = agora - lastDataMessageTime;
           secondsWithoutData = Math.floor(tempoSemDados / 1000);
           document.getElementById('timeoutSeconds').textContent = secondsWithoutData;
           
-          if (tempoSemDados > MEGA_TIMEOUT && megaOnline) {
-            megaOnline = false;
-            atualizarStatusMega(false);
+          if (tempoSemDados > TRANSMITTER_TIMEOUT && transmitterActive) {
+            transmitterActive = false;
+            adicionarLog('⚠️ Perda de sinal do transmissor', 'alert');
+            document.getElementById('alertTransmitter').classList.add('show');
+            document.getElementById('loraStatus').textContent = 'Sem Sinal';
+            document.getElementById('loraStatus').className = 'status-value offline';
           }
         }
+        
+        // CORREÇÃO: Verifica timeout do receptor (status/heartbeat)
+        // Se não recebeu nada (dados OU status) por 60s, receptor está offline
+        const ultimoContato = Math.max(lastDataMessageTime || 0, lastReceptorStatusTime || 0);
+        if (ultimoContato > 0) {
+          const tempoSemContato = agora - ultimoContato;
+          
+          if (tempoSemContato > RECEPTOR_TIMEOUT && receptorOnline) {
+            console.log('⏱️ Timeout do receptor:', tempoSemContato, 'ms sem contato');
+            atualizarStatusReceptor(false);
+            adicionarLog('⚠️ Receptor sem resposta (>60s)', 'warning');
+          }
+        }
+        
       }, 1000);
     }
 
-    function processarDados(payload, sensorOK, sinalGsm) {
-      // Atualizar operadora
-      if (payload.operadora) {
-        document.getElementById('operadoraName').textContent = payload.operadora;
-      }
-      
-      // Atualizar ICCID prefix
-      if (payload.iccid_prefix) {
-        document.getElementById('iccidPrefix').textContent = payload.iccid_prefix;
-      }
-      
-      // Atualizar sinal GSM na barra
-      const qualidade = calcularQualidadeGSM(sinalGsm);
-      const bars = document.querySelectorAll('.signal-bar-item');
-      const activeBars = Math.ceil((qualidade / 100) * 5);
-      bars.forEach((bar, idx) => bar.classList.toggle('active', idx < activeBars));
-      document.getElementById('signalText').textContent = sinalGsm + ' dBm';
-      
+    function processarDados(payload, sensorOK) {
       if (payload.config_volume_total > 0) {
         savedCapacityTotal = payload.config_volume_total;
       }
@@ -955,13 +897,16 @@
           liters: ultimoValorValido ? ultimoValorValido.liters : 0,
           distance: ultimoValorValido ? ultimoValorValido.distance : 0,
           level: ultimoValorValido ? ultimoValorValido.level : 0,
-          signalGsm: sinalGsm,
+          rssi: payload.lora_rssi || -100,
+          quality: payload.signal_quality || 0,
+          wifiRssi: payload.wifi_rssi || 0,
           sensorOk: false,
           erro: true
         };
         
         if (!sensorErrorActive && leiturasConsecutivasErradas >= 1) {
           sensorErrorActive = true;
+          adicionarLog('🚨 Falha no sensor detectada!', 'alert');
           mostrarAlertaSensor();
         }
       } else {
@@ -970,7 +915,9 @@
           liters: parseInt(payload.liters) || 0,
           distance: parseFloat(payload.distance) || 0,
           level: parseInt(payload.level) || 0,
-          signalGsm: sinalGsm,
+          rssi: payload.lora_rssi || -100,
+          quality: payload.signal_quality || 0,
+          wifiRssi: payload.wifi_rssi || 0,
           sensorOk: true,
           erro: false
         };
@@ -989,7 +936,7 @@
         liters: currentData.liters,
         distance: currentData.distance,
         status: sensorOK ? 'normal' : 'sensor_error',
-        gsm_signal: sinalGsm
+        lora_signal: { quality: currentData.quality, rssi: currentData.rssi }
       };
       
       historico.unshift(registro);
@@ -998,16 +945,6 @@
       atualizarInterface();
       atualizarHistorico();
       atualizarGrafico();
-    }
-
-    function calcularQualidadeGSM(rssi) {
-      // RSSI GSM: -113 (sem sinal) a -51 (excelente)
-      if (rssi >= -70) return 100;
-      if (rssi >= -80) return 80;
-      if (rssi >= -90) return 60;
-      if (rssi >= -100) return 40;
-      if (rssi >= -110) return 20;
-      return 10;
     }
 
     function atualizarInterface() {
@@ -1055,7 +992,13 @@
       }
 
       document.getElementById('totalCapacity').textContent = savedCapacityTotal + ' L';
+      document.getElementById('wifiRssi').textContent = currentData.wifiRssi + ' dBm';
       document.getElementById('lastUpdate').textContent = new Date().toLocaleTimeString('pt-BR');
+      
+      const bars = document.querySelectorAll('.signal-bar-item');
+      const activeBars = Math.ceil((currentData.quality / 100) * 5);
+      bars.forEach((bar, idx) => bar.classList.toggle('active', idx < activeBars));
+      document.getElementById('signalText').textContent = currentData.quality + '%';
     }
 
     function mostrarAlertaSensor() {
@@ -1066,13 +1009,10 @@
       document.getElementById('alertSensor').classList.remove('show');
     }
 
-    function mostrarAlertaSinalBaixo(sinal) {
-      document.getElementById('signalValue').textContent = sinal;
-      document.getElementById('alertGsmLowSignal').classList.add('show');
-    }
-
-    function esconderAlertaSinalBaixo() {
-      document.getElementById('alertGsmLowSignal').classList.remove('show');
+    function esconderAlertaTransmitter() {
+      document.getElementById('alertTransmitter').classList.remove('show');
+      document.getElementById('loraStatus').textContent = 'Conectado';
+      document.getElementById('loraStatus').className = 'status-value online';
     }
 
     function updateConnectionStatus(connected) {
@@ -1114,20 +1054,18 @@
           textoStatus = 'FALHA'; 
         }
         
-        // Badge de sinal GSM
-        let sinalClass = 'badge-gsm';
-        let sinalText = item.gsm_signal + ' dBm';
-        if (item.gsm_signal < -100) {
-          sinalClass = 'badge-error';
-        }
-        
         row.innerHTML = `
           <td>${hora}</td>
           <td><span class="status-badge ${classeBadge}">${textoStatus}</span></td>
           <td>${item.percentage}%</td>
           <td>${item.liters}L</td>
           <td>${item.distance.toFixed(1)}cm</td>
-          <td><span class="status-badge ${sinalClass}">${sinalText}</span></td>
+          <td>
+            <div class="signal-cell">
+              <span class="signal-dbm">${item.lora_signal.rssi} dBm</span>
+              <span class="signal-percent">(${item.lora_signal.quality}%)</span>
+            </div>
+          </td>
         `;
         tbody.appendChild(row);
       });
@@ -1170,38 +1108,21 @@
       div.className = 'update-entry';
       if (tipo === 'alert') div.classList.add('alert');
       if (tipo === 'warning') div.classList.add('warning');
-      if (tipo === 'gsm') div.classList.add('gsm');
-      
       div.innerHTML = `<span class="update-time">${hora}</span><span class="update-text">${texto}</span>`;
       const container = document.getElementById('updateHistory');
       container.insertBefore(div, container.firstChild);
       while (container.children.length > 20) container.removeChild(container.lastChild);
     }
 
-    // Funções globais para botões
-    window.confirmarReboot = function() { 
-      document.getElementById('modalReboot').classList.add('show'); 
-    };
-    
-    window.fecharModal = function() { 
-      document.getElementById('modalReboot').classList.remove('show'); 
-    };
-    
+    window.confirmarReboot = function() { document.getElementById('modalReboot').classList.add('show'); };
+    window.fecharModal = function() { document.getElementById('modalReboot').classList.remove('show'); };
     window.executarReboot = function() {
       fecharModal();
       if (client && client.connected) {
         client.publish(TOPICS.comandos, 'REBOOT');
-        adicionarLog('🔄 Comando REBOOT enviado ao MEGA', 'gsm');
+        adicionarLog('🔄 Comando REBOOT enviado');
       }
     };
-    
-    window.solicitarDados = function() {
-      if (client && client.connected) {
-        client.publish(TOPICS.comandos, 'DADOS');
-        adicionarLog('📤 Solicitação de dados enviada', 'gsm');
-      }
-    };
-    
     window.showDetails = function(tipo) {
       let msg = '';
       switch(tipo) {
@@ -1211,13 +1132,12 @@
       }
       alert(msg);
     };
-    
     window.debugData = function() {
-      console.log('=== DEBUG GSM ===');
-      console.log('megaOnline:', megaOnline);
+      console.log('=== DEBUG ===');
+      console.log('receptorOnline:', receptorOnline);
       console.log('lastDataMessageTime:', lastDataMessageTime ? new Date(lastDataMessageTime).toLocaleTimeString() : null);
+      console.log('lastReceptorStatusTime:', lastReceptorStatusTime ? new Date(lastReceptorStatusTime).toLocaleTimeString() : null);
       console.log('currentData:', currentData);
-      console.log('historico:', historico);
     };
 
     connectMQTT();
