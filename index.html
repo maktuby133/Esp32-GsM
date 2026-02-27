@@ -1,4 +1,3 @@
-
 <!DOCTYPE html>
 <html lang="pt-BR">
 <head>
@@ -765,7 +764,7 @@
     import mqtt from 'https://unpkg.com/mqtt/dist/mqtt.esm.js';
 
     const MQTT_CONFIG = {
-      host: '006d70cbbb9d44c2a347d2a3903c8f9a.s1.eu.hivemq.cloud',
+      host: '71a5889f36334b82b820b780b8409341.s1.eu.hivemq.cloud',
       port: 8884,
       username: 'esp32-receptor',
       password: '061084Cc@',
@@ -790,7 +789,6 @@
     let historico = [];
     let lastDataMessageTime = null;
     let megaOnline = false;
-    let megaStatusConhecido = false; // true após receber dados ou após timeout confirmado
     let timeoutCheckInterval = null;
     let secondsWithoutData = 0;
     let sensorErrorActive = false;
@@ -892,31 +890,16 @@
           console.error('❌ Erro:', e);
         }
       });
-
-      client.on('disconnect', () => updateConnectionStatus(false));
-      client.on('offline', () => updateConnectionStatus(false));
-      client.on('reconnect', () => {
-        const badge = document.getElementById('mqttStatus');
-        badge.innerHTML = '<i class="fas fa-broadcast-tower"></i> <span>Reconectando...</span>';
-        badge.className = 'mqtt-badge connecting';
-        document.getElementById('brokerStatus').textContent = 'Reconectando...';
-        document.getElementById('brokerStatus').className = 'status-value warning';
-      });
     }
 
     function atualizarStatusMega(online) {
       const megaStatus = document.getElementById('megaStatus');
       
       if (online) {
-        megaOnline = true;
-        megaStatusConhecido = true;
         megaStatus.textContent = 'Online';
         megaStatus.className = 'status-value online';
         document.getElementById('alertGsmOffline').classList.remove('show');
       } else {
-        // Só mostra Offline se já tínhamos recebido dados antes (status confirmado)
-        if (!megaStatusConhecido) return;
-        megaOnline = false;
         megaStatus.textContent = 'Offline';
         megaStatus.className = 'status-value offline';
         document.getElementById('alertGsmOffline').classList.add('show');
@@ -935,8 +918,7 @@
           secondsWithoutData = Math.floor(tempoSemDados / 1000);
           document.getElementById('timeoutSeconds').textContent = secondsWithoutData;
           
-          // Só marca offline se já havia dados antes (megaStatusConhecido) e passou do timeout
-          if (tempoSemDados > MEGA_TIMEOUT && megaOnline && megaStatusConhecido) {
+          if (tempoSemDados > MEGA_TIMEOUT && megaOnline) {
             megaOnline = false;
             atualizarStatusMega(false);
           }
