@@ -790,6 +790,7 @@
     let historico = [];
     let lastDataMessageTime = null;
     let megaOnline = false;
+    let megaStatusConhecido = false; // true após receber dados ou após timeout confirmado
     let timeoutCheckInterval = null;
     let secondsWithoutData = 0;
     let sensorErrorActive = false;
@@ -891,16 +892,31 @@
           console.error('❌ Erro:', e);
         }
       });
+
+      client.on('disconnect', () => updateConnectionStatus(false));
+      client.on('offline', () => updateConnectionStatus(false));
+      client.on('reconnect', () => {
+        const badge = document.getElementById('mqttStatus');
+        badge.innerHTML = '<i class="fas fa-broadcast-tower"></i> <span>Reconectando...</span>';
+        badge.className = 'mqtt-badge connecting';
+        document.getElementById('brokerStatus').textContent = 'Reconectando...';
+        document.getElementById('brokerStatus').className = 'status-value warning';
+      });
     }
 
     function atualizarStatusMega(online) {
       const megaStatus = document.getElementById('megaStatus');
       
       if (online) {
+        megaOnline = true;
+        megaStatusConhecido = true;
         megaStatus.textContent = 'Online';
         megaStatus.className = 'status-value online';
         document.getElementById('alertGsmOffline').classList.remove('show');
       } else {
+        // Só mostra Offline se já tínhamos recebido dados antes (status confirmado)
+        if (!megaStatusConhecido) return;
+        megaOnline = false;
         megaStatus.textContent = 'Offline';
         megaStatus.className = 'status-value offline';
         document.getElementById('alertGsmOffline').classList.add('show');
@@ -919,7 +935,8 @@
           secondsWithoutData = Math.floor(tempoSemDados / 1000);
           document.getElementById('timeoutSeconds').textContent = secondsWithoutData;
           
-          if (tempoSemDados > MEGA_TIMEOUT && megaOnline) {
+          // Só marca offline se já havia dados antes (megaStatusConhecido) e passou do timeout
+          if (tempoSemDados > MEGA_TIMEOUT && megaOnline && megaStatusConhecido) {
             megaOnline = false;
             atualizarStatusMega(false);
           }
