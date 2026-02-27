@@ -514,26 +514,7 @@
     .btn-cancel { background: #e9ecef; color: var(--dark); }
     .btn-confirm { background: var(--danger); color: white; }
 
-    .loading-overlay {
-      position: fixed;
-      top: 0; left: 0; width: 100%; height: 100%;
-      background: rgba(255,255,255,0.9);
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      justify-content: center;
-      z-index: 3000;
-      transition: opacity 0.5s;
-    }
-    .loading-overlay.hidden { opacity: 0; pointer-events: none; }
-    .spinner {
-      width: 50px; height: 50px;
-      border: 4px solid #f3f3f3;
-      border-top: 4px solid var(--gsm-green);
-      border-radius: 50%;
-      animation: spin 1s linear infinite;
-    }
-    @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+
 
     .status-item.sensor-error {
       background: linear-gradient(135deg, #fee2e2 0%, #fecaca 100%);
@@ -560,10 +541,7 @@
   </style>
 </head>
 <body>
-  <div id="loadingOverlay" class="loading-overlay">
-    <div class="spinner"></div>
-    <p style="margin-top: 20px; color: var(--gray);">Conectando ao HiveMQ...</p>
-  </div>
+
 
   <div class="container">
     <div class="header">
@@ -798,27 +776,46 @@
     function connectMQTT() {
       const url = `wss://${MQTT_CONFIG.host}:${MQTT_CONFIG.port}/mqtt`;
       
+      // Timeout de segurança: se não conectar em 15s, esconde o loading
+      const loadingTimeout = setTimeout(() => {
+        adicionarLog('⚠️ Tempo esgotado. Tentando reconectar...');
+        updateConnectionStatus(false);
+      }, 15000);
+
       client = mqtt.connect(url, {
         username: MQTT_CONFIG.username,
         password: MQTT_CONFIG.password,
         clientId: MQTT_CONFIG.clientId,
         clean: true,
         reconnectPeriod: 5000,
-        connectTimeout: 30000
+        connectTimeout: 15000
       });
 
       client.on('connect', () => {
         console.log('✅ Conectado ao HiveMQ!');
+        clearTimeout(loadingTimeout);
         updateConnectionStatus(true);
-        document.getElementById('loadingOverlay').classList.add('hidden');
+        adicionarLog('✅ Dashboard conectado!');
         
         iniciarVerificacaoTimeout();
         
         client.subscribe([TOPICS.dados, TOPICS.status], (err) => {
           if (!err) {
-            adicionarLog('✅ Dashboard conectado ao GSM/GPRS', 'gsm');
+            adicionarLog('📡 Inscrito nos tópicos MQTT', 'gsm');
           }
         });
+      });
+
+      client.on('error', (err) => {
+        console.error('❌ Erro MQTT:', err);
+        clearTimeout(loadingTimeout);
+        adicionarLog('❌ Erro de conexão MQTT');
+        updateConnectionStatus(false);
+      });
+
+      client.on('offline', () => {
+        adicionarLog('⚠️ MQTT offline. Reconectando...');
+        updateConnectionStatus(false);
       });
 
       client.on('message', (topic, message) => {
