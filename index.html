@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>🌊 Monitor Caixa d'Água - GSM/GPRS</title>
   
-  <script src="https://unpkg.com/mqtt/dist/mqtt.esm.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/mqtt@5.10.1/dist/mqtt.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
   
@@ -738,8 +738,8 @@
     <i class="fas fa-bug"></i>
   </button>
 
-  <script type="module">
-    import mqtt from 'https://unpkg.com/mqtt/dist/mqtt.esm.js';
+  <script>
+    // mqtt carregado via CDN global (window.mqtt)
 
     const MQTT_CONFIG = {
       host: '71a5889f36334b82b820b780b8409341.s1.eu.hivemq.cloud',
@@ -1175,30 +1175,30 @@
     }
 
     // Funções globais para botões
-    window.confirmarReboot = function() { 
+    function confirmarReboot() { 
       document.getElementById('modalReboot').classList.add('show'); 
-    };
+    }
     
-    window.fecharModal = function() { 
+    function fecharModal() { 
       document.getElementById('modalReboot').classList.remove('show'); 
-    };
+    }
     
-    window.executarReboot = function() {
+    function executarReboot() {
       fecharModal();
       if (client && client.connected) {
         client.publish(TOPICS.comandos, 'REBOOT');
         adicionarLog('🔄 Comando REBOOT enviado ao MEGA', 'gsm');
       }
-    };
+    }
     
-    window.solicitarDados = function() {
+    function solicitarDados() {
       if (client && client.connected) {
         client.publish(TOPICS.comandos, 'DADOS');
         adicionarLog('📤 Solicitação de dados enviada', 'gsm');
       }
-    };
+    }
     
-    window.showDetails = function(tipo) {
+    function showDetails(tipo) {
       let msg = '';
       switch(tipo) {
         case 'volume': msg = `Volume: ${currentData.liters}L / ${savedCapacityTotal}L`; break;
@@ -1206,15 +1206,15 @@
         case 'level': msg = `Altura: ${currentData.level}cm`; break;
       }
       alert(msg);
-    };
+    }
     
-    window.debugData = function() {
+    function debugData() {
       console.log('=== DEBUG GSM ===');
       console.log('megaOnline:', megaOnline);
       console.log('lastDataMessageTime:', lastDataMessageTime ? new Date(lastDataMessageTime).toLocaleTimeString() : null);
       console.log('currentData:', currentData);
       console.log('historico:', historico);
-    };
+    }
 
     connectMQTT();
   </script>
