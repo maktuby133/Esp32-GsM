@@ -850,9 +850,12 @@
     let TOPICS = { dados: '', status: '', comandos: '' };
     let deviceMac = '';
 
-    // ========== TIMEOUTS AJUSTADOS ==========
-    const TRANSMITTER_TIMEOUT = 45000;    // 45 segundos (transmissor envia a cada 30s)
-    const RECEPTOR_TIMEOUT    = 30000;    // 30s — broker publica LWT em ~22s, dá margem
+    // ========== TIMEOUTS ==========
+    const TRANSMITTER_TIMEOUT = 45000;   // 45s sem dado LoRa = transmissor offline
+    const RECEPTOR_TIMEOUT    = 45000;   // 45s sem qualquer mensagem = receptor offline
+
+    // Último contato do receptor (qualquer mensagem: dado ou heartbeat)
+    let lastReceptorContactTime = null;
 
     let client = null;
     let chart = null;
@@ -922,8 +925,8 @@
         document.getElementById('distanceCard').classList.remove('offline');
         document.getElementById('levelCard').classList.remove('offline');
       } else {
-        // Nunca recebeu dado — "aguardando"
-        if (!lastDataMessageTime) {
+        if (!lastReceptorContactTime) {
+          // Nunca recebeu nada — aguardando
           receptorStatus.textContent = 'Aguardando...';
           receptorStatus.className   = 'status-value warning';
           receptorItem.style.background = 'linear-gradient(135deg,#fff7e6,#fef3c7)';
@@ -931,7 +934,7 @@
           document.getElementById('alertReceptorNeverSeen').style.display = 'block';
           document.getElementById('alertReceptor').classList.remove('show');
         } else {
-          // Já teve dados mas perdeu contato
+          // Já teve contato mas perdeu
           window._receptorOfflineSince = window._receptorOfflineSince || Date.now();
           const segsOffline = Math.floor((Date.now() - window._receptorOfflineSince) / 1000);
           receptorStatus.textContent = `Offline ${segsOffline}s`;
@@ -947,33 +950,18 @@
 
     function processarStatus(payload) {
       if (payload.online === true || payload.heartbeat === true || payload.status === 'online') {
-        lastReceptorStatusTime = Date.now();
-        atualizarStatusReceptor(true, 'Online');
-      } else if (payload.online === false || payload.status === 'offline') {
-        // LWT recebido — receptor caiu, marca offline imediatamente
-        lastReceptorStatusTime = null;
-        atualizarStatusReceptor(false);
-        adicionarLog('⚠️ Receptor desconectado', 'warning');
+        if (!receptorOnline) atualizarStatusReceptor(true, 'Online');
       }
+      // online=false (LWT) é ignorado — o timeout cuida disso automaticamente
     }
 
     function iniciarVerificacaoTimeout() {
       if (timeoutCheckInterval) clearInterval(timeoutCheckInterval);
 
-      // Inicializa lastReceptorStatusTime com o momento da conexão.
-      // Assim o timeout do receptor começa a contar imediatamente.
-      // Se o LWT retido chegar (online=false), processarStatus marca offline na hora.
-      // Se o heartbeat retido chegar (online=true), atualiza lastReceptorStatusTime e fica online.
-      // Se não chegar nada em RECEPTOR_TIMEOUT ms, marca offline automaticamente.
       const dashboardConnectTime = Date.now();
-      if (lastReceptorStatusTime === null) {
-        lastReceptorStatusTime = dashboardConnectTime;
-      }
 
-      // Marca "aguardando" enquanto não há confirmação
-      if (!receptorOnline) {
-        atualizarStatusReceptor(false);
-      }
+      // Mostra aguardando ao iniciar
+      if (!receptorOnline) atualizarStatusReceptor(false);
 
       timeoutCheckInterval = setInterval(() => {
         if (document.hidden) return;
@@ -1006,32 +994,20 @@
           }
         }
 
-        // ── Receptor — monitora pelo heartbeat ──
-        // lastReceptorStatusTime é atualizado APENAS pelo tópico status (heartbeat/LWT online=true)
-        // É zerado para null quando LWT offline=true chega
-        if (lastReceptorStatusTime === null) {
-          // LWT confirmou offline — garante que está marcado
-          if (receptorOnline) {
-            window._receptorOfflineSince = agora;
-            atualizarStatusReceptor(false);
-            adicionarLog('⚠️ Receptor desconectado', 'warning');
-          }
-          // Atualiza contador
-          const segsOffline = Math.floor((agora - (window._receptorOfflineSince || agora)) / 1000);
-          const el = document.getElementById('receptorStatus');
-          if (el && el.textContent.startsWith('Offline')) el.textContent = `Offline ${segsOffline}s`;
-
+        // ── Receptor ──
+        // Se não receber nenhuma mensagem (dado ou heartbeat) por RECEPTOR_TIMEOUT, marca offline
+        if (lastReceptorContactTime === null) {
+          // Nunca recebeu nada ainda
+          if (receptorOnline) atualizarStatusReceptor(false);
         } else {
-          const tempoSemHeartbeat = agora - lastReceptorStatusTime;
-          if (tempoSemHeartbeat > RECEPTOR_TIMEOUT && receptorOnline) {
-            // Timeout — receptor parou de enviar heartbeat
+          const tempoSemContato = agora - lastReceptorContactTime;
+          if (tempoSemContato > RECEPTOR_TIMEOUT && receptorOnline) {
             window._receptorOfflineSince = agora;
-            lastReceptorStatusTime = null;   // força null para continuar contando
             atualizarStatusReceptor(false);
             adicionarLog('⚠️ Receptor sem resposta', 'warning');
-          } else if (!receptorOnline) {
-            // Offline mas lastReceptorStatusTime ainda não foi zerado (transição)
-            const segsOffline = Math.floor(tempoSemHeartbeat / 1000);
+          }
+          if (!receptorOnline) {
+            const segsOffline = Math.floor((agora - (window._receptorOfflineSince || agora)) / 1000);
             const el = document.getElementById('receptorStatus');
             if (el && el.textContent.startsWith('Offline')) el.textContent = `Offline ${segsOffline}s`;
           }
@@ -1300,6 +1276,7 @@
             }
           }
           if (topic === TOPICS.dados) {
+            lastReceptorContactTime = Date.now();  // qualquer dado = receptor está vivo
             const isCached = payload.cached === true;
 
             if (isCached) {
@@ -1344,6 +1321,7 @@
               processarDados(payload, sensorOK, false);
             }
           } else if (topic === TOPICS.status) {
+            lastReceptorContactTime = Date.now();  // heartbeat = receptor está vivo
             processarStatus(payload);
           }
         } catch (e) { console.error('Erro ao processar mensagem:', e); }
