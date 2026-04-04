@@ -1010,6 +1010,8 @@
             const segsOffline = Math.floor((agora - (window._receptorOfflineSince || agora)) / 1000);
             const el = document.getElementById('receptorStatus');
             if (el && el.textContent.startsWith('Offline')) el.textContent = `Offline ${segsOffline}s`;
+            // Receptor offline — esconde alerta do transmissor (não tem como saber se está enviando)
+            document.getElementById('alertTransmitter').classList.remove('show');
           }
         }
       }, 1000);
