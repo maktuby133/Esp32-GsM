@@ -2,14 +2,17 @@
 <html lang="pt-BR">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>🌊 Monitor Caixa d'Água - GSM/GPRS</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
+  <title>🌊 Monitor Caixa d'Água - HiveMQ</title>
   
   <script src="https://cdn.jsdelivr.net/npm/mqtt@5.10.1/dist/mqtt.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
   
   <style>
+    /* ========== SEU CSS ORIGINAL COMPLETO (COLE AQUI) ========== */
+    /* Por brevidade, estou reutilizando o CSS do último código enviado.
+       Se preferir, mantenha exatamente o mesmo que você já tinha. */
     :root {
       --primary: #0077b6;
       --primary-dark: #023e8a;
@@ -22,7 +25,6 @@
       --gray: #6c757d;
       --water-blue: #48cae4;
       --water-deep: #0096c7;
-      --gsm-green: #00c853;
     }
 
     * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -31,16 +33,19 @@
       font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
       background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
       min-height: 100vh;
-      padding: 8px;
+      padding: 6px;
       color: var(--dark);
     }
 
-    .container { max-width: 1400px; margin: 0 auto; }
+    .container {
+      max-width: 1400px; margin: 0 auto;
+      display: flex; flex-direction: column; gap: 9px;
+    }
 
     .header {
       text-align: center;
-      margin-bottom: 8px;
-      padding: 12px;
+      flex-shrink: 0;
+      padding: 7px 14px;
       background: white;
       border-radius: 12px;
       box-shadow: 0 4px 15px rgba(0,0,0,0.06);
@@ -52,17 +57,18 @@
       content: '';
       position: absolute;
       top: 0; left: 0; width: 100%; height: 4px;
-      background: linear-gradient(90deg, var(--primary), var(--gsm-green));
+      background: linear-gradient(90deg, var(--primary), #7b2cbf);
     }
 
     .header h1 {
       color: var(--primary-dark);
-      font-size: 1.3rem;
+      font-size: 1.1rem;
       margin-bottom: 4px;
       display: flex;
       align-items: center;
       justify-content: center;
-      gap: 10px;
+      gap: 8px;
+      flex-wrap: wrap;
     }
 
     .mqtt-badge {
@@ -106,49 +112,31 @@
       box-shadow: 0 4px 12px rgba(230, 57, 70, 0.3);
     }
 
-    .btn-sms {
-      background: var(--gsm-green);
-      color: white;
-    }
-
-    .btn-sms:hover {
-      background: #00a344;
-      transform: translateY(-2px);
-    }
-
     .status-panel {
       display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
-      gap: 8px;
-      margin-bottom: 10px;
+      grid-template-columns: repeat(6, 1fr);
+      gap: 5px;
+      flex-shrink: 0;
+      margin-top: 6px;
     }
 
     .status-item {
       display: flex;
+      flex-direction: row;
       align-items: center;
       justify-content: space-between;
-      gap: 8px;
+      gap: 4px;
       background: white;
-      padding: 10px;
-      border-radius: 10px;
+      padding: 2px 7px;
+      border-radius: 7px;
       box-shadow: 0 2px 8px rgba(0,0,0,0.05);
-      transition: transform 0.2s;
+      min-width: 0;
+      white-space: nowrap;
+      overflow: hidden;
     }
 
-    .status-item:hover { transform: translateY(-2px); }
-
-    .status-label {
-      font-weight: 600;
-      color: var(--gray);
-      font-size: 0.7rem;
-      text-transform: uppercase;
-    }
-
-    .status-value {
-      font-weight: 700;
-      font-size: 0.85rem;
-      text-align: right;
-    }
+    .status-label { font-weight:600; color:var(--gray); font-size:0.52rem; text-transform:uppercase; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; flex-shrink:1; }
+    .status-value { font-weight:700; font-size:0.7rem; text-align:right; white-space:nowrap; flex-shrink:0; }
 
     .online { color: var(--success); }
     .offline { color: var(--danger); animation: blink 1.5s infinite; }
@@ -162,7 +150,7 @@
       width: 4px; background: #e9ecef; border-radius: 2px;
       transition: all 0.3s;
     }
-    .signal-bar-item.active { background: var(--gsm-green); }
+    .signal-bar-item.active { background: var(--primary); }
     .signal-bar-item:nth-child(1) { height: 4px; }
     .signal-bar-item:nth-child(2) { height: 7px; }
     .signal-bar-item:nth-child(3) { height: 10px; }
@@ -171,8 +159,7 @@
 
     .alert-banner {
       display: none;
-      padding: 12px;
-      margin-bottom: 10px;
+      padding: 5px 12px;
       border-radius: 8px;
       text-align: center;
       font-weight: 600;
@@ -180,28 +167,10 @@
       animation: slideInDown 0.5s ease, pulse-border 2s infinite;
     }
     .alert-banner.show { display: block; }
-    
-    /* Alertas específicos para GSM */
-    .alert-gsm-offline { 
-      background: #fecaca; 
-      color: #7f1d1d; 
-      border: 2px solid #ef4444; 
-    }
-    .alert-gsm-low-signal { 
-      background: #fef3c7; 
-      color: #92400e; 
-      border: 2px solid #fbbf24; 
-    }
-    .alert-sensor { 
-      background: #fee2e2; 
-      color: #991b1b; 
-      border: 2px solid #f87171; 
-    }
-    .alert-mega-offline {
-      background: #e0e7ff;
-      color: #3730a3;
-      border: 2px solid #6366f1;
-    }
+    .alert-transmitter { background: #fecaca; color: #7f1d1d; border: 2px solid #ef4444; }
+    .alert-receptor { background: #fee2e2; color: #991b1b; border: 2px solid #f87171; }
+    .alert-sensor { background: #fef3c7; color: #92400e; border: 2px solid #fbbf24; }
+    .alert-wrong-device { background: #e0e7ff; color: #1e3a8a; border: 2px solid #3b82f6; }
 
     @keyframes slideInDown { from { opacity: 0; transform: translateY(-20px); } to { opacity: 1; transform: translateY(0); } }
     @keyframes pulse-border { 0%, 100% { border-width: 2px; } 50% { border-width: 4px; } }
@@ -209,29 +178,31 @@
     .main-content {
       display: grid;
       grid-template-columns: 1fr 1fr;
-      gap: 10px;
-      margin-bottom: 10px;
-      align-items: start;
+      gap: 8px;
+      margin-bottom: 5px;
+      margin-top: 8px;
+      align-items: stretch;
+      height: 370px;
     }
 
-    @media (max-width: 768px) { 
-      .main-content { grid-template-columns: 1fr; } 
+    @media (max-width: 600px) { 
+      .main-content { grid-template-columns: 1fr; height: auto; }
     }
 
     .card {
       background: white;
-      padding: 15px;
+      padding: 12px;
       border-radius: 15px;
       box-shadow: 0 5px 20px rgba(0,0,0,0.08);
-      max-height: 500px;
-      overflow-y: auto;
       display: flex;
       flex-direction: column;
+      overflow: hidden;
+      min-height: 0;
     }
 
     .card-header {
       text-align: center;
-      margin-bottom: 15px;
+      margin-bottom: 8px;
       display: flex;
       align-items: center;
       justify-content: center;
@@ -244,13 +215,13 @@
 
     .tank-wrapper {
       position: relative;
-      width: 240px;
-      height: 220px;
-      margin: 10px auto;
+      width: min(280px, 80vw);
+      height: min(320px, 54vh);
+      margin: 4px auto;
+      flex-shrink: 1;
       display: flex;
       align-items: center;
       justify-content: center;
-      flex-shrink: 0;
     }
 
     .tank-image {
@@ -267,12 +238,12 @@
     .tank {
       position: absolute;
       left: 50%; transform: translateX(-50%);
-      width: 44px;
-      top: 38px; bottom: 42px;
-      border-radius: 8px;
+      width: 70px;
+      top: 40px; bottom: 48px;
+      border-radius: 12px;
       overflow: hidden;
       z-index: 2;
-      background: rgba(20, 40, 60, 0.35);
+      background: rgba(20, 40, 60, 0.30);
       backdrop-filter: blur(1px);
       box-shadow: inset 0 0 8px rgba(0,0,0,0.2);
     }
@@ -325,6 +296,16 @@
       background: linear-gradient(to top, #7f1d1d, #dc2626) !important; 
       animation: pulse-red 0.5s infinite; 
     }
+    .water.offline-receptor { 
+      background: linear-gradient(to top, #374151, #6b7280) !important; 
+      height: 0% !important;
+      animation: none;
+    }
+    .water.offline-transmitter { 
+      background: linear-gradient(to top, #451a1a, #7f1d1d) !important; 
+      height: 0% !important;
+      animation: none;
+    }
 
     @keyframes pulse-red { 
       0%, 100% { opacity: 1; box-shadow: 0 0 10px rgba(220, 38, 38, 0.5); } 
@@ -334,8 +315,8 @@
     .tank-marks {
       position: absolute;
       left: 50%; transform: translateX(-50%);
-      width: 44px;
-      top: 38px; bottom: 42px;
+      width: 70px;
+      top: 40px; bottom: 48px;
       z-index: 3;
       pointer-events: none;
     }
@@ -354,36 +335,22 @@
     .tank-mark.mid { top: 50%; transform: translateY(-50%); }
     .tank-mark.bottom { bottom: 0; }
 
-    .tank-capacity {
-      text-align: center;
-      margin: 10px 0;
-      padding: 10px;
-      background: linear-gradient(135deg, #e3f2fd 0%, #bbdefb 100%);
-      border-radius: 10px;
-      border: 2px solid var(--primary);
-      flex-shrink: 0;
-    }
-    .tank-capacity-label { font-size: 0.7rem; color: var(--gray); font-weight: 600; text-transform: uppercase; }
-    .tank-capacity-value { font-size: 1.2rem; font-weight: 700; color: var(--primary-dark); }
-
     .info-grid {
       display: grid;
       grid-template-columns: repeat(3, 1fr);
-      gap: 8px;
-      margin-top: 10px;
+      gap: 6px;
+      margin-top: 0;
       flex-shrink: 0;
     }
-    @media (max-width: 768px) { .info-grid { grid-template-columns: 1fr; } }
 
     .info-card {
       background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
-      padding: 12px 8px;
+      padding: 1px 4px;
       border-radius: 10px;
       text-align: center;
       cursor: pointer;
       transition: all 0.3s;
       border: 2px solid transparent;
-      min-height: 80px;
       display: flex;
       flex-direction: column;
       justify-content: center;
@@ -399,30 +366,38 @@
       border-color: var(--danger);
       animation: pulse-border 1.5s infinite;
     }
-    .info-card-label { font-size: 0.65rem; color: var(--gray); font-weight: 600; text-transform: uppercase; margin-bottom: 4px; }
-    .info-card-value { font-size: 1.1rem; font-weight: 700; color: var(--primary-dark); }
-    .info-card-unit { font-size: 0.75rem; color: var(--gray); }
+    .info-card.offline {
+      background: linear-gradient(135deg, #e5e7eb 0%, #d1d5db 100%);
+      border-color: var(--gray);
+      opacity: 0.7;
+    }
+    .info-card-label { font-size: 0.58rem; color: var(--gray); font-weight: 600; text-transform: uppercase; margin-bottom: 1px; }
+    .info-card-value { font-size: 0.9rem; font-weight: 700; color: var(--primary-dark); }
+    .info-card-unit { font-size: 0.65rem; color: var(--gray); }
     .info-card.error .info-card-value { color: var(--danger); }
     .info-card.error .info-card-label { color: var(--danger); }
+    .info-card.offline .info-card-value { color: var(--gray); }
 
-    #nivelChart { 
-      max-height: 250px !important; 
-      height: 250px !important;
-      width: 100% !important;
+    #nivelChart { display: block; width: 100% !important; }
+    #chartWrapper { height: 340px; }
+
+    @media (max-width: 600px) {
+      #chartWrapper { height: 220px; }
+      #chartCard { height: auto !important; overflow: hidden; }
     }
 
     .table-container {
       overflow-x: auto;
-      margin-top: 10px;
+      margin-top: 6px;
       border-radius: 8px;
       border: 1px solid #e9ecef;
       max-height: 200px;
       overflow-y: auto;
     }
-    table { width: 100%; border-collapse: collapse; font-size: 0.8rem; }
+    table { width: 100%; border-collapse: collapse; font-size: 0.72rem; }
     thead { background: linear-gradient(135deg, var(--primary) 0%, var(--primary-dark) 100%); color: white; }
-    th { padding: 10px 8px; text-align: left; font-weight: 600; white-space: nowrap; }
-    td { padding: 8px; border-bottom: 1px solid #e9ecef; }
+    th { padding: 5px 7px; text-align: left; font-weight: 600; white-space: nowrap; }
+    td { padding: 4px 7px; border-bottom: 1px solid #e9ecef; }
     tbody tr:hover { background: #f8f9fa; }
     tbody tr:last-child td { border-bottom: none; }
 
@@ -435,43 +410,36 @@
     }
     .badge-normal { background: #d4edda; color: #155724; }
     .badge-error { background: #f8d7da; color: #721c24; }
-    .badge-gsm { background: #c8e6c9; color: #1b5e20; }
 
     .signal-cell { display: flex; align-items: center; gap: 8px; }
     .signal-dbm { font-weight: 700; font-size: 0.85rem; color: var(--primary-dark); min-width: 45px; }
     .signal-percent { font-weight: 600; font-size: 0.85rem; color: var(--gray); }
 
-    #updateHistory { 
-      max-height: 150px; 
-      overflow-y: auto;
-    }
+    #updateHistory { max-height: 120px; overflow-y: auto; }
 
     .update-entry {
-      padding: 8px 12px;
-      margin-bottom: 6px;
+      padding: 4px 10px;
+      margin-bottom: 3px;
       background: #f8f9fa;
       border-left: 3px solid var(--primary);
       border-radius: 5px;
       display: flex;
       gap: 10px;
-      font-size: 0.8rem;
-      animation: slideIn 0.3s ease;
+      font-size: 0.72rem;
     }
     .update-entry.alert { background: #fee2e2; border-left-color: var(--danger); animation: pulse-alert 2s infinite; }
     .update-entry.warning { background: #fef3c7; border-left-color: var(--warning); }
-    .update-entry.gsm { background: #e8f5e9; border-left-color: var(--gsm-green); }
     @keyframes slideIn { from { opacity: 0; transform: translateX(-10px); } to { opacity: 1; transform: translateX(0); } }
     @keyframes pulse-alert { 0%, 100% { background: #fee2e2; } 50% { background: #fecaca; } }
     .update-time { color: var(--primary); font-weight: 600; min-width: 60px; font-size: 0.75rem; }
     .update-entry.alert .update-time { color: var(--danger); }
-    .update-entry.gsm .update-time { color: var(--gsm-green); }
     .update-text { color: var(--dark); flex: 1; }
 
     .log-header {
       display: flex;
       justify-content: space-between;
       align-items: center;
-      margin-bottom: 15px;
+      margin-bottom: 8px;
       flex-shrink: 0;
     }
 
@@ -514,8 +482,6 @@
     .btn-cancel { background: #e9ecef; color: var(--dark); }
     .btn-confirm { background: var(--danger); color: white; }
 
-
-
     .status-item.sensor-error {
       background: linear-gradient(135deg, #fee2e2 0%, #fecaca 100%);
       border: 2px solid var(--danger);
@@ -526,119 +492,275 @@
       color: var(--danger);
     }
 
-    /* Info de operadora */
-    .operadora-badge {
+    .bat-icon-wrap {
+      display: flex;
+      align-items: center;
+      gap: 5px;
+    }
+    .bat-body {
+      position: relative;
+      width: 32px;
+      height: 16px;
+      border: 2px solid #555;
+      border-radius: 3px;
+      background: #f0f0f0;
+      overflow: hidden;
+    }
+    .bat-body::after {
+      content: '';
+      position: absolute;
+      right: -6px;
+      top: 50%;
+      transform: translateY(-50%);
+      width: 4px;
+      height: 8px;
+      background: #555;
+      border-radius: 0 2px 2px 0;
+    }
+    .bat-fill {
+      position: absolute;
+      left: 0; top: 0; bottom: 0;
+      border-radius: 1px;
+      transition: width 0.6s ease, background 0.6s ease;
+    }
+    .bat-label {
+      font-size: 0.75rem;
+      font-weight: 700;
+      color: var(--dark);
+      min-width: 34px;
+      text-align: right;
+    }
+
+    @media (max-width: 480px) {
+      body { padding: 5px; }
+      .header { padding: 8px 10px; }
+      .header h1 { font-size: 0.9rem; }
+      .status-panel { grid-template-columns: repeat(6, 1fr); gap: 4px; }
+      .status-label { font-size: 0.5rem; }
+      .status-value { font-size: 0.65rem; }
+      .card { padding: 10px; border-radius: 12px; }
+      .card-header { font-size: 0.88rem; }
+      .tank-wrapper { width: min(240px, 80vw); height: min(225px, 75vw); }
+      .bottom-grid { grid-template-columns: 1fr !important; height: auto !important; }
+      #bottomGrid { grid-template-columns: 1fr !important; }
+      .log-header { flex-direction: column; align-items: flex-start; gap: 6px; }
+      .log-header .btn { width: 100%; justify-content: center; }
+      th, td { padding: 5px 4px; font-size: 0.68rem; }
+      .signal-dbm { font-size: 0.72rem; min-width: 38px; }
+      .signal-percent { font-size: 0.72rem; }
+      .alert-banner { font-size: 0.78rem; padding: 7px 10px; }
+      .debug-btn { width: 42px; height: 42px; bottom: 12px; right: 12px; }
+      #mqttDiagBanner { font-size: 0.75rem; word-break: break-word; }
+      #mqttDiagBanner code { font-size: 0.68rem; word-break: break-all; }
+    }
+
+    @media (max-width: 360px) {
+      .status-panel { grid-template-columns: repeat(3, 1fr); }
+      .tank-wrapper { width: min(200px, 78vw); height: min(188px, 73vw); }
+      .header h1 { font-size: 0.8rem; }
+    }
+
+    #codigoScreen {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+      z-index: 9999;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+    }
+    #codigoScreen.show { display: flex; }
+    .codigo-card {
+      background: white;
+      padding: 36px 32px 28px;
+      border-radius: 20px;
+      box-shadow: 0 20px 60px rgba(0,0,0,0.15);
+      width: 100%;
+      max-width: 400px;
+      text-align: center;
+      animation: fadeUpCard 0.4s ease;
+    }
+    @keyframes fadeUpCard { from { opacity:0; transform:translateY(20px); } to { opacity:1; transform:translateY(0); } }
+    .codigo-icon { font-size: 3rem; margin-bottom: 10px; display: block; }
+    .codigo-card h2 { color: #023e8a; font-size: 1.3rem; margin-bottom: 6px; }
+    .codigo-card p  { color: #6c757d; font-size: 0.88rem; margin-bottom: 22px; line-height: 1.5; }
+    .codigo-input-wrap { position: relative; margin-bottom: 18px; }
+    .codigo-input {
+      width: 100%;
+      padding: 14px 16px;
+      font-size: 1.4rem;
+      font-weight: 700;
+      letter-spacing: 0.25em;
+      text-align: center;
+      text-transform: uppercase;
+      border: 2px solid #e0e0e0;
+      border-radius: 12px;
+      outline: none;
+      transition: border 0.3s;
+      color: #023e8a;
+    }
+    .codigo-input:focus { border-color: #0077b6; }
+    .codigo-input.erro  { border-color: #e63946; animation: shake 0.3s ease; }
+    @keyframes shake { 0%,100%{transform:translateX(0)} 25%{transform:translateX(-6px)} 75%{transform:translateX(6px)} }
+    .codigo-btn {
+      width: 100%;
+      padding: 13px;
+      background: linear-gradient(135deg, #0077b6, #023e8a);
+      color: white;
+      border: none;
+      border-radius: 12px;
+      font-size: 1rem;
+      font-weight: 700;
+      cursor: pointer;
+      transition: all 0.3s;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+    }
+    .codigo-btn:hover { transform: translateY(-2px); box-shadow: 0 6px 20px rgba(0,119,182,0.35); }
+    .codigo-btn:disabled { opacity: 0.6; cursor: not-allowed; transform: none; }
+    .codigo-erro-msg {
+      color: #e63946;
+      font-size: 0.82rem;
+      margin-top: 10px;
+      min-height: 18px;
+      font-weight: 600;
+    }
+    .codigo-lembrar {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 7px;
+      margin-top: 14px;
+      font-size: 0.82rem;
+      color: #6c757d;
+      cursor: pointer;
+    }
+    .codigo-lembrar input { cursor: pointer; accent-color: #0077b6; }
+    .device-badge {
       display: inline-flex;
       align-items: center;
       gap: 5px;
-      background: #e8f5e9;
-      color: #2e7d32;
-      padding: 2px 8px;
-      border-radius: 12px;
-      font-size: 0.7rem;
-      font-weight: 600;
+      background: #e3f2fd;
+      color: #023e8a;
+      padding: 3px 10px;
+      border-radius: 20px;
+      font-size: 0.72rem;
+      font-weight: 700;
+      cursor: pointer;
+      border: 1px solid #90caf9;
+      transition: all 0.2s;
     }
+    .device-badge:hover { background: #bbdefb; }
   </style>
 </head>
 <body>
 
+  <!-- Tela de código -->
+  <div id="codigoScreen" class="show">
+    <div class="codigo-card">
+      <span class="codigo-icon">📡</span>
+      <h2>Monitor Caixa d'Água</h2>
+      <p>Digite o <strong>código do dispositivo</strong> que está na etiqueta colada no seu receptor.</p>
+      <div class="codigo-input-wrap">
+        <input class="codigo-input" id="codigoInput" type="text"
+               maxlength="6" placeholder="A1B2C3"
+               autocomplete="off" autocorrect="off"
+               autocapitalize="characters" spellcheck="false">
+      </div>
+      <button class="codigo-btn" id="codigoBtn" onclick="confirmarCodigo()">
+        <i class="fas fa-plug"></i> Conectar
+      </button>
+      <div class="codigo-erro-msg" id="codigoErro"></div>
+      <label class="codigo-lembrar">
+        <input type="checkbox" id="lembrarCodigo" checked>
+        Lembrar neste aparelho
+      </label>
+    </div>
+  </div>
 
-  <div class="container">
+  <div class="container" id="mainContainer" style="display:none">
     <div class="header">
-      <h1><i class="fas fa-water"></i> Monitor de Caixa d'Água <span style="font-size:0.7em; color:var(--gsm-green)">[GSM]</span></h1>
+      <h1><i class="fas fa-water"></i> Monitor de Caixa d'Água</h1>
+      <span class="device-badge" id="deviceBadge" onclick="trocarDispositivo()" title="Clique para trocar"><i class="fas fa-microchip"></i> <span id="deviceBadgeText">--</span></span>
       <div class="mqtt-badge connecting" id="mqttStatus">
         <i class="fas fa-broadcast-tower"></i> <span>Conectando...</span>
       </div>
     </div>
 
-    <!-- Banner de erro MQTT -->
-    <div id="mqttErrorBanner" style="display:none; background:#fff3cd; border:2px solid #ffc107; border-radius:8px; padding:12px 16px; margin-bottom:10px; font-size:0.85rem; color:#856404;">
-      <strong>⚠️ MQTT:</strong> <span id="mqttErrorMsg">Erro de conexão</span>
-      <br><small style="color:#999;">Broker: <code>71a5889f36334b82b820b780b8409341.s1.eu.hivemq.cloud:8884</code> | Usuário: <code>esp32-receptor</code></small>
-      <br><small style="color:#c0392b;">👉 Verifique se o usuário <strong>esp32-receptor</strong> foi criado no cluster HiveMQ em <a href="https://console.hivemq.cloud" target="_blank">console.hivemq.cloud</a></small>
+    <div id="mqttDiagBanner" style="display:none; background:#fff3cd; border:2px solid #ffc107; border-radius:8px; padding:10px 14px; margin-bottom:8px; font-size:0.82rem; color:#856404;">
+      <strong>⚠️ Erro MQTT:</strong> <span id="mqttDiagMsg">—</span><br>
+      <small>Broker: <code>13efa30a8367496d82053ae1fec856fb.s1.eu.hivemq.cloud:8884</code> | Usuário: <code id="mqttDiagUser">—</code></small>
     </div>
 
-    <!-- Alertas GSM -->
-    <div id="alertGsmOffline" class="alert-banner alert-gsm-offline">
-      <i class="fas fa-signal"></i> MEGA GSM OFFLINE (<span id="timeoutSeconds">0</span>s sem dados)
+    <div id="alertTransmitter" class="alert-banner alert-transmitter">
+      <i class="fas fa-satellite-dish"></i> SEM SINAL DO TRANSMISSOR — offline há <span id="timeoutSeconds">0</span>s
     </div>
-    
-    <div id="alertGsmLowSignal" class="alert-banner alert-gsm-low-signal">
-      <i class="fas fa-exclamation-triangle"></i> SINAL GSM FRACO (<span id="signalValue">0</span> dBm)
+    <div id="alertReceptor" class="alert-banner alert-receptor">
+      <i class="fas fa-wifi"></i> RECEPTOR DESCONECTADO — verifique energia e WiFi do receptor
     </div>
-    
+    <div id="alertReceptorNeverSeen" class="alert-banner" style="display:none; background:#e0e7ff; color:#1e3a8a; border:2px solid #3b82f6; padding:5px 12px; border-radius:8px; text-align:center; font-weight:600; font-size:0.9rem;">
+      <i class="fas fa-clock"></i> Aguardando receptor... nenhum dado recebido ainda
+    </div>
     <div id="alertSensor" class="alert-banner alert-sensor">
-      <i class="fas fa-microchip"></i> FALHA NO SENSOR ULTRASSÔNICO
+      <i class="fas fa-exclamation-triangle"></i> FALHA NO SENSOR ULTRASSÔNICO
+    </div>
+    <div id="alertWrongDevice" class="alert-banner alert-wrong-device" style="display:none;">
+      <i class="fas fa-ban"></i> DADO DE OUTRO DISPOSITIVO IGNORADO
     </div>
 
     <div class="status-panel">
-      <!-- Status MQTT -->
-      <div class="status-item">
-        <span class="status-label">MQTT Broker:</span>
-        <span class="status-value" id="brokerStatus">Conectando...</span>
+      <div class="status-item" id="receptorStatusItem">
+        <span class="status-label">Receptor WiFi</span>
+        <span class="status-value" id="receptorStatus">Aguardando...</span>
       </div>
-      
-      <!-- Status MEGA GSM -->
       <div class="status-item">
-        <span class="status-label">MEGA GSM:</span>
-        <span class="status-value" id="megaStatus">Verificando...</span>
-      </div>
-      
-      <!-- Operadora -->
-      <div class="status-item">
-        <span class="status-label">Operadora:</span>
-        <div style="text-align: right;">
-          <span class="operadora-badge" id="operadoraBadge">
-            <i class="fas fa-sim-card"></i> <span id="operadoraName">--</span>
-          </span>
-        </div>
-      </div>
-      
-      <!-- Sinal GSM -->
-      <div class="status-item">
-        <span class="status-label">Sinal GSM:</span>
-        <div style="text-align: right;">
-          <div class="signal-bar" id="signalBar">
+        <span class="status-label">Sinal LoRa</span>
+        <div style="display:flex;align-items:center;gap:4px;flex-shrink:0;">
+          <div class="signal-bar" id="signalBar" style="justify-content:flex-end;">
             <div class="signal-bar-item"></div><div class="signal-bar-item"></div>
             <div class="signal-bar-item"></div><div class="signal-bar-item"></div>
             <div class="signal-bar-item"></div>
           </div>
-          <div style="font-size: 0.7rem; margin-top: 2px;" id="signalText">-- dBm</div>
+          <span style="font-size:0.62rem;color:var(--gray);font-weight:700;" id="signalText">OFF</span>
         </div>
       </div>
-      
-      <!-- Último Dado -->
       <div class="status-item">
-        <span class="status-label">Último Dado:</span>
+        <span class="status-label">Último Dado</span>
         <span class="status-value" id="lastUpdate">--:--:--</span>
       </div>
-      
-      <!-- ICCID -->
       <div class="status-item">
-        <span class="status-label">Chip ICCID:</span>
-        <span class="status-value" id="iccidPrefix" style="font-size:0.75rem;">--</span>
+        <span class="status-label">WiFi RSSI</span>
+        <span class="status-value" id="wifiRssi">-- dBm</span>
       </div>
-      
-      <!-- Sensor -->
       <div class="status-item" id="sensorStatusItem">
-        <span class="status-label"><i class="fas fa-microchip"></i> Sensor:</span>
-        <span class="status-value" id="sensorStatus">Verificando...</span>
+        <span class="status-label"><i class="fas fa-microchip"></i> Sensor</span>
+        <span class="status-value" id="sensorStatus">Aguardando...</span>
+      </div>
+      <div class="status-item">
+        <span class="status-label"><i class="fas fa-battery-half"></i> Bateria TX</span>
+        <div class="bat-icon-wrap" style="justify-content:flex-end;flex-shrink:0;">
+          <div class="bat-body">
+            <div class="bat-fill" id="batFill" style="width:0%;background:#38b000;"></div>
+          </div>
+          <span class="bat-label" id="batPercLabel">--%</span>
+        </div>
       </div>
     </div>
 
     <div class="main-content">
-      <!-- Card do Tanque -->
       <div class="card">
-        <div class="card-header">
-          <i class="fas fa-tint"></i> Status da Caixa
+        <div class="card-header" style="margin-bottom:4px;text-align:center;justify-content:center;">
+          Status da Caixa d'Água
         </div>
-        
         <div class="tank-wrapper">
-          <img class="tank-image" 
-               src="https://ik.imagekit.io/o7q7lmyva/Caixa-5000-frontal-sl-1024x762.png?updatedAt=1763608669534" 
+          <img class="tank-image"
+               src="https://ik.imagekit.io/o7q7lmyva/caixa_d_agua_1000_litros.png?updatedAt=1769916384477"
                alt="Caixa d'água">
           <div class="tank">
-            <div class="water" id="waterLevel" style="height: 0%;">0%</div>
+            <div class="water" id="waterLevel" style="height:0%;">0%</div>
           </div>
           <div class="tank-marks">
             <div class="tank-mark top">100%</div>
@@ -646,94 +768,64 @@
             <div class="tank-mark bottom">0%</div>
           </div>
         </div>
-
-        <div class="tank-capacity">
-          <div class="tank-capacity-label">Capacidade Total</div>
-          <div class="tank-capacity-value" id="totalCapacity">-- L</div>
-        </div>
-
-        <div class="info-grid">
-          <div class="info-card" id="volumeCard" onclick="showDetails('volume')">
-            <div class="info-card-label"><i class="fas fa-tint"></i> Volume</div>
-            <div class="info-card-value">
-              <span id="currentVolume">--</span><span class="info-card-unit">L</span>
+        <div style="flex-shrink:0; padding-top:8px; border-top:1px solid #e9ecef; margin-top:auto;">
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;">
+            <div class="info-card" style="cursor:default;">
+              <div class="info-card-label">Capacidade</div>
+              <div class="info-card-value"><span id="totalCapacity">--</span></div>
             </div>
-          </div>
-          <div class="info-card" id="distanceCard" onclick="showDetails('distance')">
-            <div class="info-card-label"><i class="fas fa-ruler-vertical"></i> Distância</div>
-            <div class="info-card-value">
-              <span id="currentDistance">--</span><span class="info-card-unit">cm</span>
+            <div class="info-card" id="volumeCard" onclick="showDetails('volume')">
+              <div class="info-card-label">Volume</div>
+              <div class="info-card-value"><span id="currentVolume">--</span><span class="info-card-unit"> L</span></div>
             </div>
-          </div>
-          <div class="info-card" id="levelCard" onclick="showDetails('level')">
-            <div class="info-card-label"><i class="fas fa-arrows-alt-v"></i> Altura</div>
-            <div class="info-card-value">
-              <span id="currentLevel">--</span><span class="info-card-unit">cm</span>
+            <div class="info-card" id="distanceCard" onclick="showDetails('distance')">
+              <div class="info-card-label">Distância</div>
+              <div class="info-card-value"><span id="currentDistance">--</span><span class="info-card-unit"> cm</span></div>
+            </div>
+            <div class="info-card" id="levelCard" onclick="showDetails('level')">
+              <div class="info-card-label">Nível</div>
+              <div class="info-card-value"><span id="currentLevel">--</span><span class="info-card-unit"> cm</span></div>
             </div>
           </div>
         </div>
       </div>
-
-      <!-- Card do Gráfico -->
-      <div class="card">
+      <div class="card" id="chartCard" style="min-height:0; overflow:hidden;">
         <div class="card-header">
           <i class="fas fa-chart-line"></i> Histórico (24h)
         </div>
-        <canvas id="nivelChart"></canvas>
-      </div>
-    </div>
-
-    <!-- Histórico -->
-    <div class="card" style="margin-bottom: 10px; max-height: 300px;">
-      <div class="card-header">
-        <i class="fas fa-history"></i> Últimas Leituras
-      </div>
-      <div id="historyLoading" style="text-align: center; padding: 20px; color: var(--gray);">
-        <i class="fas fa-spinner fa-spin"></i> Aguardando dados...
-      </div>
-      <div id="historyTableContainer" style="display: none;">
-        <div class="table-container">
-          <table>
-            <thead>
-              <tr>
-                <th>Horário</th>
-                <th>Status Sensor</th>
-                <th>Nível</th>
-                <th>Volume</th>
-                <th>Dist.</th>
-                <th>Sinal GSM</th>
-              </tr>
-            </thead>
-            <tbody id="historyBody"></tbody>
-          </table>
+        <div id="chartWrapper" style="flex:1; min-height:0; overflow:hidden;">
+          <canvas id="nivelChart"></canvas>
         </div>
       </div>
     </div>
 
-    <!-- Log e Comandos -->
-    <div class="card" style="max-height: 250px;">
-      <div class="log-header">
-        <div class="card-header" style="margin: 0;">
-          <i class="fas fa-bell"></i> Log de Eventos
-        </div>
-        <div style="display: flex; gap: 8px;">
-          <button class="btn btn-sms" onclick="solicitarDados()">
-            <i class="fas fa-sms"></i> Solicitar Dados
-          </button>
-          <button class="btn btn-reboot" onclick="confirmarReboot()">
-            <i class="fas fa-power-off"></i> Reiniciar
-          </button>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;flex-shrink:0;margin-bottom:10px;" id="bottomGrid">
+      <div class="card" style="overflow:hidden;">
+        <div class="card-header" style="margin-bottom:5px;flex-shrink:0;"><i class="fas fa-history"></i> Últimas Leituras</div>
+        <div id="historyLoading" style="padding:8px;text-align:center;color:var(--gray);font-size:0.8rem;flex-shrink:0;"><i class="fas fa-spinner fa-spin"></i> Aguardando dados...</div>
+        <div id="historyTableContainer" style="display:none;max-height:180px;overflow-y:auto;overflow-x:auto;flex-shrink:0;">
+          <div style="border-radius:8px;border:1px solid #e9ecef;">
+            <table style="width:100%;border-collapse:collapse;font-size:0.72rem;">
+              <thead><tr><th style="padding:5px 7px;text-align:left;font-weight:600;white-space:nowrap;background:linear-gradient(135deg,#0077b6,#023e8a);color:white;">Horário</th><th style="padding:5px 7px;text-align:left;font-weight:600;white-space:nowrap;background:linear-gradient(135deg,#0077b6,#023e8a);color:white;">Sensor</th><th style="padding:5px 7px;text-align:left;font-weight:600;white-space:nowrap;background:linear-gradient(135deg,#0077b6,#023e8a);color:white;">Nível</th><th style="padding:5px 7px;text-align:left;font-weight:600;white-space:nowrap;background:linear-gradient(135deg,#0077b6,#023e8a);color:white;">Volume</th><th style="padding:5px 7px;text-align:left;font-weight:600;white-space:nowrap;background:linear-gradient(135deg,#0077b6,#023e8a);color:white;">Dist.</th><th style="padding:5px 7px;text-align:left;font-weight:600;white-space:nowrap;background:linear-gradient(135deg,#0077b6,#023e8a);color:white;">Sinal LoRa</th></tr></thead>
+              <tbody id="historyBody"></tbody>
+            </table>
+          </div>
         </div>
       </div>
-      <div id="updateHistory"></div>
+      <div class="card" style="overflow:hidden;">
+        <div class="log-header" style="flex-shrink:0;">
+          <div class="card-header" style="margin:0;"><i class="fas fa-bell"></i> Log de Eventos</div>
+          <button class="btn btn-reboot" onclick="confirmarReboot()"><i class="fas fa-power-off"></i> Reiniciar</button>
+        </div>
+        <div id="updateHistory" style="max-height:150px;overflow-y:auto;flex-shrink:0;"></div>
+      </div>
     </div>
   </div>
 
-  <!-- Modal de Reboot -->
   <div id="modalReboot" class="modal">
     <div class="modal-content">
-      <h3><i class="fas fa-exclamation-triangle"></i> Reiniciar MEGA?</h3>
-      <p>O dispositivo Arduino Mega será reiniciado remotamente via MQTT. Pode levar 30 segundos.</p>
+      <h3><i class="fas fa-exclamation-triangle"></i> Reiniciar Receptor?</h3>
+      <p>O dispositivo ESP32 será reiniciado remotamente via MQTT. Isso pode levar 30 segundos.</p>
       <div class="modal-buttons">
         <button class="btn btn-cancel" onclick="fecharModal()">Cancelar</button>
         <button class="btn btn-confirm" onclick="executarReboot()">Sim, Reiniciar</button>
@@ -746,26 +838,21 @@
   </button>
 
   <script>
-    // mqtt carregado via CDN global (window.mqtt)
-
+    // ==================== CONFIGURAÇÃO DO BROKER ====================
     const MQTT_CONFIG = {
-      host: '71a5889f36334b82b820b780b8409341.s1.eu.hivemq.cloud',
-      port: 8884,
-      username: 'esp32-GsM',
-      password: '061084Cc@',
-      clientId: 'gsm-dashboard-' + Math.random().toString(16).substr(2, 8)
+      host:     '13efa30a8367496d82053ae1fec856fb.s1.eu.hivemq.cloud',
+      port:     8884,
+      username: 'esp32-Project',
+      password: '061084Cca',
+      clientId: 'dash-lora-01'
     };
 
-    const TOPICS = {
-      dados: 'caixas/agua/dados',
-      status: 'caixas/agua/status',
-      comandos: 'caixas/agua/comandos'
-    };
+    let TOPICS = { dados: '', status: '', comandos: '' };
+    let deviceMac = '';
 
-    // Timeouts para GSM (mais tolerantes que LoRa)
-    const MEGA_TIMEOUT = 90000;      // 90s sem dados = offline (GSM tem delay maior)
-    const LOW_SIGNAL_THRESHOLD = -100; // dBm
-    const STORAGE_KEY = 'mega_timeout_state';
+    // ========== TIMEOUTS AJUSTADOS ==========
+    const TRANSMITTER_TIMEOUT = 45000;    // 45 segundos (transmissor envia a cada 30s)
+    const RECEPTOR_TIMEOUT    = 45000;    // 45 segundos (mais rápido para detectar receptor offline)
 
     let client = null;
     let chart = null;
@@ -773,219 +860,186 @@
     let currentData = {};
     let historico = [];
     let lastDataMessageTime = null;
-    let megaOnline = false;
+    let lastReceptorStatusTime = null;
+    let receptorOnline = false;
+    let transmitterActive = false;
     let timeoutCheckInterval = null;
     let secondsWithoutData = 0;
     let sensorErrorActive = false;
-    let ultimoValorValido = null;
     let leiturasConsecutivasErradas = 0;
+    let ultimoValorValido = null;
+    let pageHiddenAt = null;
 
-    function connectMQTT() {
-      const url = `wss://${MQTT_CONFIG.host}:8884/mqtt`;
-
-      adicionarLog('🔄 Conectando ao HiveMQ...');
-      console.log('Conectando em:', url);
-
-      const loadingTimeout = setTimeout(() => {
-        adicionarLog('⚠️ Tempo esgotado. Verifique credenciais/rede.');
-        updateConnectionStatus(false);
-      }, 20000);
-
-      try {
-        client = mqtt.connect(url, {
-          username: MQTT_CONFIG.username,
-          password: MQTT_CONFIG.password,
-          clientId: MQTT_CONFIG.clientId,
-          protocol: 'wss',
-          clean: true,
-          rejectUnauthorized: false,
-          reconnectPeriod: 5000,
-          connectTimeout: 20000,
-          keepalive: 60
-        });
-      } catch(e) {
-        clearTimeout(loadingTimeout);
-        adicionarLog('❌ Falha ao iniciar MQTT: ' + e.message);
-        updateConnectionStatus(false);
-        return;
-      }
-
-      client.on('connect', () => {
-        console.log('✅ Conectado ao HiveMQ!');
-        clearTimeout(loadingTimeout);
-        updateConnectionStatus(true);
-        adicionarLog('✅ Dashboard conectado!');
-        document.getElementById('mqttErrorBanner').style.display = 'none';
-        
-        iniciarVerificacaoTimeout();
-        
-        client.subscribe([TOPICS.dados, TOPICS.status], (err) => {
-          if (!err) {
-            adicionarLog('📡 Inscrito nos tópicos MQTT', 'gsm');
-          }
-        });
-      });
-
-      client.on('error', (err) => {
-        console.error('❌ Erro MQTT:', err);
-        clearTimeout(loadingTimeout);
-        const msg = err.message || String(err);
-        adicionarLog('❌ Erro MQTT: ' + msg);
-        updateConnectionStatus(false);
-        document.getElementById('mqttErrorBanner').style.display = 'block';
-        document.getElementById('mqttErrorMsg').textContent = msg;
-      });
-
-      client.on('reconnect', () => {
-        adicionarLog('🔄 Reconectando...', 'warning');
-      });
-
-      client.on('offline', () => {
-        adicionarLog('⚠️ MQTT offline. Reconectando...');
-        updateConnectionStatus(false);
-      });
-
-      client.on('message', (topic, message) => {
-        try {
-          const payload = JSON.parse(message.toString());
-          console.log('📥 Payload:', payload);
-          
-          if (topic === TOPICS.dados) {
-            lastDataMessageTime = Date.now();
-            secondsWithoutData = 0;
-            
-            // Atualizar status MEGA
-            if (!megaOnline) {
-              megaOnline = true;
-              atualizarStatusMega(true);
-            }
-            
-            // Verificar sensor
-            let sensorOK = payload.sensor_ok;
-            const distancia = parseFloat(payload.distance);
-            const percentual = parseInt(payload.percentage);
-            
-            if (sensorOK !== false) {
-              if (distancia < 0 || distancia === 0 || percentual < 0) {
-                sensorOK = false;
-              }
-            }
-            
-            // Verificar sinal GSM baixo
-            const sinalGsm = payload.signal_gsm || -113;
-            if (sinalGsm < LOW_SIGNAL_THRESHOLD && sinalGsm > -120) {
-              mostrarAlertaSinalBaixo(sinalGsm);
-            } else {
-              esconderAlertaSinalBaixo();
-            }
-            
-            if (sensorOK) {
-              ultimoValorValido = {
-                percentage: percentual,
-                liters: parseInt(payload.liters),
-                distance: distancia,
-                level: parseInt(payload.level)
-              };
-              leiturasConsecutivasErradas = 0;
-            } else {
-              leiturasConsecutivasErradas++;
-            }
-            
-            if (!sensorErrorActive && leiturasConsecutivasErradas >= 1) {
-              sensorErrorActive = true;
-              adicionarLog('🚨 Falha no sensor detectada!', 'alert');
-              mostrarAlertaSensor();
-            }
-            
-            processarDados(payload, sensorOK, sinalGsm);
-            
-          } else if (topic === TOPICS.status) {
-            // Heartbeat do MEGA
-            lastDataMessageTime = Date.now();
-            if (!megaOnline) {
-              megaOnline = true;
-              atualizarStatusMega(true);
-            }
-            if (payload.status === 'online') {
-              adicionarLog('💓 MEGA online (heartbeat)', 'gsm');
-            }
-          }
-        } catch (e) {
-          console.error('❌ Erro:', e);
-        }
-      });
+    // ==================== FUNÇÕES AUXILIARES ====================
+    function calcularQualidadeSinal(rssi) {
+      if (rssi >= -50) return 100;
+      if (rssi >= -70) return 80;
+      if (rssi >= -90) return 60;
+      if (rssi >= -100) return 40;
+      if (rssi >= -110) return 20;
+      return 10;
     }
 
-    function atualizarStatusMega(online) {
-      const megaStatus = document.getElementById('megaStatus');
-      
-      if (online) {
-        megaStatus.textContent = 'Online';
-        megaStatus.className = 'status-value online';
-        document.getElementById('alertGsmOffline').classList.remove('show');
+    function zerarInterfaceOffline(motivo) {
+      const water = document.getElementById('waterLevel');
+      if (motivo === 'receptor') {
+        water.className = 'water offline-receptor';
+        water.textContent = 'REC OFF';
       } else {
-        megaStatus.textContent = 'Offline';
-        megaStatus.className = 'status-value offline';
-        document.getElementById('alertGsmOffline').classList.add('show');
-        adicionarLog('⚠️ MEGA GSM offline', 'alert');
+        water.className = 'water offline-transmitter';
+        water.textContent = 'SEM SINAL';
+      }
+      water.style.height = '0%';
+      document.getElementById('currentVolume').textContent = '--';
+      document.getElementById('currentDistance').textContent = '--';
+      document.getElementById('currentLevel').textContent = '--';
+      document.getElementById('volumeCard').classList.add('offline');
+      document.getElementById('distanceCard').classList.add('offline');
+      document.getElementById('levelCard').classList.add('offline');
+      const bars = document.querySelectorAll('.signal-bar-item');
+      bars.forEach(bar => bar.classList.remove('active'));
+      document.getElementById('signalText').textContent = 'OFF';
+      document.getElementById('loraStatus').textContent = motivo === 'receptor' ? 'Receptor Off' : 'Sem Sinal';
+      document.getElementById('loraStatus').className = 'status-value offline';
+      document.getElementById('wifiRssi').textContent = '-- dBm';
+      document.getElementById('sensorStatus').textContent = motivo === 'receptor' ? 'Receptor Off' : 'Sem Sinal';
+      document.getElementById('sensorStatus').className = 'status-value offline';
+    }
+
+    function atualizarStatusReceptor(online, texto) {
+      const receptorStatus = document.getElementById('receptorStatus');
+      const receptorItem   = document.getElementById('receptorStatusItem');
+      receptorOnline = online;
+      if (online) {
+        receptorStatus.textContent = texto || 'Online';
+        receptorStatus.className   = 'status-value online';
+        receptorItem.style.background = '';
+        receptorItem.style.border     = '';
+        document.getElementById('alertReceptor').classList.remove('show');
+        document.getElementById('alertReceptorNeverSeen').style.display = 'none';
+        document.getElementById('volumeCard').classList.remove('offline');
+        document.getElementById('distanceCard').classList.remove('offline');
+        document.getElementById('levelCard').classList.remove('offline');
+      } else {
+        // Nunca recebeu dado — "aguardando"
+        if (!lastDataMessageTime) {
+          receptorStatus.textContent = 'Aguardando...';
+          receptorStatus.className   = 'status-value warning';
+          receptorItem.style.background = 'linear-gradient(135deg,#fff7e6,#fef3c7)';
+          receptorItem.style.border     = '2px solid #ff9e00';
+          document.getElementById('alertReceptorNeverSeen').style.display = 'block';
+          document.getElementById('alertReceptor').classList.remove('show');
+        } else {
+          // Já teve dados mas perdeu contato
+          const segsOffline = Math.floor((Date.now() - Math.max(lastDataMessageTime, lastReceptorStatusTime || 0)) / 1000);
+          receptorStatus.textContent = `Offline ${segsOffline}s`;
+          receptorStatus.className   = 'status-value offline';
+          receptorItem.style.background = 'linear-gradient(135deg,#fee2e2,#fecaca)';
+          receptorItem.style.border     = '2px solid #e63946';
+          document.getElementById('alertReceptor').classList.add('show');
+          document.getElementById('alertReceptorNeverSeen').style.display = 'none';
+          zerarInterfaceOffline('receptor');
+        }
+      }
+    }
+
+    function processarStatus(payload) {
+      if (payload.online === true || payload.heartbeat === true || payload.status === 'online') {
+        atualizarStatusReceptor(true, 'Online');
+      } else if (payload.online === false || payload.status === 'offline') {
+        // online=false vem do LWT — receptor caiu inesperadamente
+        atualizarStatusReceptor(false);
+        adicionarLog('⚠️ Receptor desconectado', 'warning');
       }
     }
 
     function iniciarVerificacaoTimeout() {
       if (timeoutCheckInterval) clearInterval(timeoutCheckInterval);
-      
+
+      // Marca o momento em que o dashboard conectou ao broker
+      // Usado para detectar transmissor offline mesmo sem nunca ter recebido dado
+      const dashboardConnectTime = Date.now();
+
+      // Se nunca recebeu nenhum dado, mostra "aguardando" imediatamente
+      if (!lastDataMessageTime && !lastReceptorStatusTime) {
+        atualizarStatusReceptor(false);
+      }
+
       timeoutCheckInterval = setInterval(() => {
+        if (document.hidden) return;
         const agora = Date.now();
-        
+
+        // ── Transmissor ──
         if (lastDataMessageTime) {
+          // Já recebeu dado antes — conta a partir do último dado
           const tempoSemDados = agora - lastDataMessageTime;
           secondsWithoutData = Math.floor(tempoSemDados / 1000);
           document.getElementById('timeoutSeconds').textContent = secondsWithoutData;
-          
-          if (tempoSemDados > MEGA_TIMEOUT && megaOnline) {
-            megaOnline = false;
-            atualizarStatusMega(false);
+          if (tempoSemDados > TRANSMITTER_TIMEOUT && transmitterActive) {
+            transmitterActive = false;
+            adicionarLog('⚠️ Perda de sinal do transmissor', 'alert');
+            document.getElementById('alertTransmitter').classList.add('show');
+            document.getElementById('loraStatus').textContent = 'Sem Sinal';
+            document.getElementById('loraStatus').className = 'status-value offline';
+            zerarInterfaceOffline('transmitter');
+          }
+        } else {
+          // Nunca recebeu dado — conta a partir da conexão do dashboard
+          const tempoSemDados = agora - dashboardConnectTime;
+          secondsWithoutData = Math.floor(tempoSemDados / 1000);
+          document.getElementById('timeoutSeconds').textContent = secondsWithoutData;
+          if (tempoSemDados > TRANSMITTER_TIMEOUT && !transmitterActive) {
+            adicionarLog('⚠️ Transmissor não responde desde a abertura do painel', 'alert');
+            document.getElementById('alertTransmitter').classList.add('show');
+            document.getElementById('loraStatus').textContent = 'Sem Sinal';
+            document.getElementById('loraStatus').className = 'status-value offline';
+          }
+        }
+
+        // ── Receptor ──
+        const ultimoContato = Math.max(lastDataMessageTime || 0, lastReceptorStatusTime || 0);
+
+        if (ultimoContato === 0) {
+          // Nunca recebeu nada — mantém estado "aguardando"
+          if (receptorOnline) atualizarStatusReceptor(false);
+        } else {
+          const tempoSemContato = agora - ultimoContato;
+          if (tempoSemContato > RECEPTOR_TIMEOUT && receptorOnline) {
+            atualizarStatusReceptor(false);
+            adicionarLog('⚠️ Receptor sem resposta', 'warning');
+          }
+          // Atualiza o contador de tempo offline continuamente no painel
+          if (!receptorOnline && lastDataMessageTime) {
+            const segsOffline = Math.floor(tempoSemContato / 1000);
+            const el = document.getElementById('receptorStatus');
+            if (el && el.textContent.startsWith('Offline')) {
+              el.textContent = `Offline ${segsOffline}s`;
+            }
           }
         }
       }, 1000);
     }
 
-    function processarDados(payload, sensorOK, sinalGsm) {
-      // Atualizar operadora
-      if (payload.operadora) {
-        document.getElementById('operadoraName').textContent = payload.operadora;
-      }
-      
-      // Atualizar ICCID prefix
-      if (payload.iccid_prefix) {
-        document.getElementById('iccidPrefix').textContent = payload.iccid_prefix;
-      }
-      
-      // Atualizar sinal GSM na barra
-      const qualidade = calcularQualidadeGSM(sinalGsm);
-      const bars = document.querySelectorAll('.signal-bar-item');
-      const activeBars = Math.ceil((qualidade / 100) * 5);
-      bars.forEach((bar, idx) => bar.classList.toggle('active', idx < activeBars));
-      document.getElementById('signalText').textContent = sinalGsm + ' dBm';
-      
-      if (payload.config_volume_total > 0) {
-        savedCapacityTotal = payload.config_volume_total;
-      }
-      
+    function processarDados(payload, sensorOK, isCached = false) {
+      if (payload.config_volume_total > 0) savedCapacityTotal = payload.config_volume_total;
       if (!sensorOK) {
         currentData = {
           percentage: ultimoValorValido ? ultimoValorValido.percentage : 0,
           liters: ultimoValorValido ? ultimoValorValido.liters : 0,
           distance: ultimoValorValido ? ultimoValorValido.distance : 0,
           level: ultimoValorValido ? ultimoValorValido.level : 0,
-          signalGsm: sinalGsm,
+          rssi: payload.lora_rssi || -100,
+          quality: payload.signal_quality || 0,
+          wifiRssi: payload.wifi_rssi || 0,
           sensorOk: false,
-          erro: true
+          erro: true,
+          batVoltage: parseFloat(payload.bat_voltage) || 0,
+          batPercent: parseInt(payload.bat_percent) || 0
         };
-        
         if (!sensorErrorActive && leiturasConsecutivasErradas >= 1) {
           sensorErrorActive = true;
-          mostrarAlertaSensor();
+          adicionarLog('🚨 Falha no sensor detectada!', 'alert');
+          document.getElementById('alertSensor').classList.add('show');
         }
       } else {
         currentData = {
@@ -993,125 +1047,89 @@
           liters: parseInt(payload.liters) || 0,
           distance: parseFloat(payload.distance) || 0,
           level: parseInt(payload.level) || 0,
-          signalGsm: sinalGsm,
+          rssi: payload.lora_rssi || -100,
+          quality: payload.signal_quality || 0,
+          wifiRssi: payload.wifi_rssi || 0,
           sensorOk: true,
-          erro: false
+          erro: false,
+          batVoltage: parseFloat(payload.bat_voltage) || 0,
+          batPercent: parseInt(payload.bat_percent) || 0
         };
-        
         if (sensorErrorActive) {
           sensorErrorActive = false;
           leiturasConsecutivasErradas = 0;
           adicionarLog('✅ Sensor normalizado');
-          esconderAlertaSensor();
+          document.getElementById('alertSensor').classList.remove('show');
         }
       }
-
       const registro = {
-        timestamp: new Date().toISOString(),
+        timestamp: Date.now(),
         percentage: currentData.percentage,
         liters: currentData.liters,
         distance: currentData.distance,
         status: sensorOK ? 'normal' : 'sensor_error',
-        gsm_signal: sinalGsm
+        lora_signal: { quality: currentData.quality, rssi: currentData.rssi }
       };
-      
       historico.unshift(registro);
       if (historico.length > 50) historico.pop();
-      
       atualizarInterface();
       atualizarHistorico();
       atualizarGrafico();
     }
 
-    function calcularQualidadeGSM(rssi) {
-      // RSSI GSM: -113 (sem sinal) a -51 (excelente)
-      if (rssi >= -70) return 100;
-      if (rssi >= -80) return 80;
-      if (rssi >= -90) return 60;
-      if (rssi >= -100) return 40;
-      if (rssi >= -110) return 20;
-      return 10;
-    }
-
     function atualizarInterface() {
       const pct = currentData.percentage;
       const water = document.getElementById('waterLevel');
-      
       if (currentData.erro) {
         water.className = 'water sensor-error';
         water.textContent = 'ERRO';
         water.style.height = '10%';
-        
         document.getElementById('sensorStatus').textContent = 'FALHA';
         document.getElementById('sensorStatus').className = 'status-value sensor-error';
         document.getElementById('sensorStatusItem').classList.add('sensor-error');
-        
         document.getElementById('volumeCard').classList.add('error');
         document.getElementById('distanceCard').classList.add('error');
         document.getElementById('levelCard').classList.add('error');
-        
         document.getElementById('currentVolume').textContent = currentData.liters + '*';
         document.getElementById('currentDistance').textContent = currentData.distance.toFixed(1) + '*';
         document.getElementById('currentLevel').textContent = currentData.level + '*';
       } else {
         water.style.height = pct + '%';
         water.textContent = pct + '%';
-        
         water.className = 'water';
         if (pct <= 10) water.classList.add('critical');
         else if (pct <= 25) water.classList.add('low');
         else if (pct <= 50) water.classList.add('medium');
         else if (pct <= 80) water.classList.add('good');
         else water.classList.add('full');
-
         document.getElementById('currentVolume').textContent = currentData.liters;
         document.getElementById('currentDistance').textContent = currentData.distance.toFixed(1);
         document.getElementById('currentLevel').textContent = currentData.level;
-        
         document.getElementById('sensorStatus').textContent = 'OK';
         document.getElementById('sensorStatus').className = 'status-value online';
         document.getElementById('sensorStatusItem').classList.remove('sensor-error');
-        
         document.getElementById('volumeCard').classList.remove('error');
         document.getElementById('distanceCard').classList.remove('error');
         document.getElementById('levelCard').classList.remove('error');
       }
-
       document.getElementById('totalCapacity').textContent = savedCapacityTotal + ' L';
+      document.getElementById('wifiRssi').textContent = currentData.wifiRssi + ' dBm';
       document.getElementById('lastUpdate').textContent = new Date().toLocaleTimeString('pt-BR');
-    }
-
-    function mostrarAlertaSensor() {
-      document.getElementById('alertSensor').classList.add('show');
-    }
-
-    function esconderAlertaSensor() {
-      document.getElementById('alertSensor').classList.remove('show');
-    }
-
-    function mostrarAlertaSinalBaixo(sinal) {
-      document.getElementById('signalValue').textContent = sinal;
-      document.getElementById('alertGsmLowSignal').classList.add('show');
-    }
-
-    function esconderAlertaSinalBaixo() {
-      document.getElementById('alertGsmLowSignal').classList.remove('show');
-    }
-
-    function updateConnectionStatus(connected) {
-      const badge = document.getElementById('mqttStatus');
-      const brokerStatus = document.getElementById('brokerStatus');
-      
-      if (connected) {
-        badge.innerHTML = '<i class="fas fa-check-circle"></i> <span>MQTT Online</span>';
-        badge.className = 'mqtt-badge';
-        brokerStatus.textContent = 'Conectado';
-        brokerStatus.className = 'status-value online';
-      } else {
-        badge.innerHTML = '<i class="fas fa-times-circle"></i> <span>Offline</span>';
-        badge.className = 'mqtt-badge disconnected';
-        brokerStatus.textContent = 'Desconectado';
-        brokerStatus.className = 'status-value offline';
+      const bars = document.querySelectorAll('.signal-bar-item');
+      const activeBars = Math.ceil((currentData.quality / 100) * 5);
+      bars.forEach((bar, idx) => bar.classList.toggle('active', idx < activeBars));
+      document.getElementById('signalText').textContent = currentData.quality + '%';
+      const pctBat = currentData.batPercent || 0;
+      const vBat   = currentData.batVoltage || 0;
+      const fill   = document.getElementById('batFill');
+      const lbl    = document.getElementById('batPercLabel');
+      if (fill && lbl) {
+        fill.style.width = pctBat + '%';
+        if      (pctBat <= 15) fill.style.background = '#e63946';
+        else if (pctBat <= 35) fill.style.background = '#ff9e00';
+        else                   fill.style.background = '#38b000';
+        lbl.textContent = pctBat + '%';
+        lbl.title = vBat.toFixed(2) + 'V';
       }
     }
 
@@ -1119,38 +1137,22 @@
       const container = document.getElementById('historyTableContainer');
       const loading = document.getElementById('historyLoading');
       const tbody = document.getElementById('historyBody');
-      
       if (historico.length === 0) return;
-      
       loading.style.display = 'none';
       container.style.display = 'block';
-      
       tbody.innerHTML = '';
       historico.slice(0, 5).forEach(item => {
         const row = document.createElement('tr');
         const hora = new Date(item.timestamp).toLocaleTimeString('pt-BR');
-        
-        let classeBadge = 'badge-normal';
-        let textoStatus = 'OK';
-        if (item.status === 'sensor_error') { 
-          classeBadge = 'badge-error'; 
-          textoStatus = 'FALHA'; 
-        }
-        
-        // Badge de sinal GSM
-        let sinalClass = 'badge-gsm';
-        let sinalText = item.gsm_signal + ' dBm';
-        if (item.gsm_signal < -100) {
-          sinalClass = 'badge-error';
-        }
-        
+        let classeBadge = 'badge-normal', textoStatus = 'OK';
+        if (item.status === 'sensor_error') { classeBadge = 'badge-error'; textoStatus = 'FALHA'; }
         row.innerHTML = `
           <td>${hora}</td>
           <td><span class="status-badge ${classeBadge}">${textoStatus}</span></td>
           <td>${item.percentage}%</td>
           <td>${item.liters}L</td>
           <td>${item.distance.toFixed(1)}cm</td>
-          <td><span class="status-badge ${sinalClass}">${sinalText}</span></td>
+          <td><div class="signal-cell"><span class="signal-dbm">${item.lora_signal.rssi} dBm</span><span class="signal-percent">(${item.lora_signal.quality}%)</span></div></td>
         `;
         tbody.appendChild(row);
       });
@@ -1159,72 +1161,232 @@
     function atualizarGrafico() {
       const ctx = document.getElementById('nivelChart');
       if (!ctx) return;
-      
       const dadosValidos = historico.filter(i => i.status === 'normal').reverse();
       if (dadosValidos.length === 0) return;
-      
-      const labels = dadosValidos.map(i => new Date(i.timestamp));
-      const data = dadosValidos.map(i => i.percentage);
-      
+      const porHora = {};
+      dadosValidos.forEach(i => {
+        const d = new Date(i.timestamp);
+        const chave = `${d.getFullYear()}-${d.getMonth()}-${d.getDate()}-${d.getHours()}`;
+        porHora[chave] = i;
+      });
+      const agregados = Object.values(porHora).sort((a, b) => a.timestamp - b.timestamp);
+      const labels = agregados.map(i => new Date(i.timestamp).toLocaleTimeString('pt-BR', { hour:'2-digit', minute:'2-digit' }));
+      const data = agregados.map(i => i.percentage);
+      const isMobile = window.innerWidth <= 600;
+      const chartOptions = {
+        responsive: true, maintainAspectRatio: false,
+        interaction: { mode: 'index', intersect: false },
+        plugins: { legend: { display: false }, tooltip: { backgroundColor: 'rgba(2, 62, 138, 0.92)', titleColor: '#90e0ef', bodyColor: '#ffffff', padding: 10, cornerRadius: 8, callbacks: { title: (items) => '🕐 ' + items[0].label, label: (item) => `  Nível: ${item.raw}%` } } },
+        scales: { y: { beginAtZero: true, max: 100, ticks: { callback: v => v + '%', font: { size: isMobile ? 9 : 11 }, color: '#6c757d', maxTicksLimit: 6 }, grid: { color: 'rgba(0,0,0,0.06)' }, border: { dash: [4,4] } }, x: { display: true, ticks: { font: { size: isMobile ? 8 : 10 }, color: '#6c757d', maxRotation: 45, minRotation: 0, autoSkip: true, maxTicksLimit: isMobile ? 6 : 12 }, grid: { display: false } } }
+      };
       if (!chart) {
-        chart = new Chart(ctx, {
-          type: 'line',
-          data: { labels, datasets: [{ label: 'Nível %', data, borderColor: '#0077b6', backgroundColor: 'rgba(0, 119, 182, 0.1)', borderWidth: 2, fill: true, tension: 0.4 }] },
-          options: { 
-            responsive: true, 
-            maintainAspectRatio: false,
-            plugins: { legend: { display: false } },
-            scales: { 
-              y: { beginAtZero: true, max: 100 },
-              x: { display: false }
-            }
-          }
-        });
+        chart = new Chart(ctx, { type: 'line', data: { labels, datasets: [{ label: 'Nível %', data, borderColor: '#0077b6', backgroundColor: (context) => { const gradient = context.chart.ctx.createLinearGradient(0,0,0,context.chart.height); gradient.addColorStop(0, 'rgba(0,119,182,0.35)'); gradient.addColorStop(1, 'rgba(0,119,182,0.02)'); return gradient; }, borderWidth: 2.5, fill: true, tension: 0.4, pointRadius: isMobile ? 3 : 4, pointBackgroundColor: '#0077b6', pointBorderColor: '#ffffff', pointBorderWidth: 2, pointHoverRadius: 6 }] }, options: chartOptions });
       } else {
-        chart.data.labels = labels;
-        chart.data.datasets[0].data = data;
-        chart.update();
+        chart.data.labels = labels; chart.data.datasets[0].data = data; chart.update();
       }
     }
 
+    let _ultimoLogTexto = '';
+    let _ultimoLogTipo  = '';
     function adicionarLog(texto, tipo = 'normal') {
+      // Não repete a mesma mensagem consecutivamente
+      if (texto === _ultimoLogTexto && tipo === _ultimoLogTipo) return;
+      _ultimoLogTexto = texto;
+      _ultimoLogTipo  = tipo;
+
       const hora = new Date().toLocaleTimeString('pt-BR');
       const div = document.createElement('div');
       div.className = 'update-entry';
       if (tipo === 'alert') div.classList.add('alert');
       if (tipo === 'warning') div.classList.add('warning');
-      if (tipo === 'gsm') div.classList.add('gsm');
-      
       div.innerHTML = `<span class="update-time">${hora}</span><span class="update-text">${texto}</span>`;
       const container = document.getElementById('updateHistory');
       container.insertBefore(div, container.firstChild);
       while (container.children.length > 20) container.removeChild(container.lastChild);
     }
 
-    // Funções globais para botões
-    function confirmarReboot() { 
-      document.getElementById('modalReboot').classList.add('show'); 
-    }
-    
-    function fecharModal() { 
-      document.getElementById('modalReboot').classList.remove('show'); 
-    }
-    
-    function executarReboot() {
-      fecharModal();
-      if (client && client.connected) {
-        client.publish(TOPICS.comandos, 'REBOOT');
-        adicionarLog('🔄 Comando REBOOT enviado ao MEGA', 'gsm');
+    function updateConnectionStatus(connected) {
+      const badge = document.getElementById('mqttStatus');
+      if (connected) {
+        badge.innerHTML = '<i class="fas fa-check-circle"></i> <span>MQTT Online</span>';
+        badge.className = 'mqtt-badge';
+      } else {
+        badge.innerHTML = '<i class="fas fa-times-circle"></i> <span>Offline</span>';
+        badge.className = 'mqtt-badge disconnected';
       }
     }
-    
-    function solicitarDados() {
-      if (client && client.connected) {
-        client.publish(TOPICS.comandos, 'DADOS');
-        adicionarLog('📤 Solicitação de dados enviada', 'gsm');
+
+    function connectMQTT() {
+      const url = `wss://${MQTT_CONFIG.host}:8884/mqtt`;
+      adicionarLog('🔄 Conectando ao HiveMQ...');
+      try {
+        client = mqtt.connect(url, {
+          username: MQTT_CONFIG.username,
+          password: MQTT_CONFIG.password,
+          clientId: MQTT_CONFIG.clientId,
+          protocol: 'wss',
+          clean: true,              // CORRIGIDO: sessão limpa evita receber mensagens antigas
+          rejectUnauthorized: false,
+          reconnectPeriod: 3000,
+          connectTimeout: 8000,
+          keepalive: 30
+        });
+      } catch(e) {
+        adicionarLog('❌ Falha ao iniciar MQTT: ' + e.message);
+        updateConnectionStatus(false);
+        return;
       }
+      client.on('connect', () => {
+        client._connectTime = Date.now(); // marca hora da conexão para rejeitar mensagens retidas
+        updateConnectionStatus(true);
+        adicionarLog('✅ Dashboard conectado');
+        document.getElementById('mqttDiagBanner').style.display = 'none';
+        iniciarVerificacaoTimeout();
+        client.subscribe([TOPICS.dados, TOPICS.status], (err) => { if (!err) lastReceptorStatusTime = Date.now(); });
+      });
+      client.on('reconnect', () => adicionarLog('🔄 Reconectando ao broker...', 'warning'));
+      client.on('disconnect', () => { updateConnectionStatus(false); if (lastDataMessageTime) zerarInterfaceOffline('receptor'); });
+      client.on('error', (err) => {
+        const msg = err.message || String(err);
+        adicionarLog('❌ Erro MQTT: ' + msg);
+        updateConnectionStatus(false);
+        document.getElementById('mqttDiagBanner').style.display = 'block';
+        document.getElementById('mqttDiagMsg').textContent = msg;
+        document.getElementById('mqttDiagUser').textContent = MQTT_CONFIG.username;
+        if (lastDataMessageTime) zerarInterfaceOffline('receptor');
+      });
+      client.on('message', (topic, message) => {
+        try {
+          const payload = JSON.parse(message.toString());
+
+          // Rejeita mensagens ao vivo que cheguem nos primeiros 2s após conectar
+          // (podem ser de sessões zumbis antigas antes da correção do retain)
+          if (topic === TOPICS.dados && payload.cached !== true) {
+            const agora = Date.now();
+            if (client._connectTime && (agora - client._connectTime) < 2000) {
+              console.warn('🚫 Mensagem ignorada (janela de proteção pós-conexão)');
+              return;
+            }
+          }
+
+          // Valida deviceID
+          if (topic === TOPICS.dados) {
+            if (payload.deviceID && deviceMac && payload.deviceID !== deviceMac) {
+              console.warn(`🚫 Pacote ignorado: deviceID ${payload.deviceID} não corresponde ao código ${deviceMac}`);
+              adicionarLog(`🚫 Dado ignorado: esperado ${deviceMac}, recebido ${payload.deviceID}`, 'warning');
+              const wrongAlert = document.getElementById('alertWrongDevice');
+              wrongAlert.style.display = 'block';
+              setTimeout(() => { wrongAlert.style.display = 'none'; }, 3000);
+              return;
+            }
+          }
+          if (topic === TOPICS.dados) {
+            const isCached = payload.cached === true;
+
+            if (isCached) {
+              // ── DADO EM CACHE ──
+              // Mostra os valores na tela imediatamente mas NÃO atualiza
+              // os timers de timeout nem marca o transmissor como ativo.
+              // O painel continuará monitorando normalmente e vai mostrar
+              // "sem sinal" quando o timeout expirar (transmissor desligado).
+              let sensorOK = payload.sensor_ok;
+              const distancia = parseFloat(payload.distance);
+              const percentual = parseInt(payload.percentage);
+              if (sensorOK !== false) {
+                if (distancia < 0 || distancia === 0 || percentual < 0) sensorOK = false;
+              }
+              if (sensorOK) {
+                ultimoValorValido = { percentage: percentual, liters: parseInt(payload.liters), distance: distancia, level: parseInt(payload.level) };
+              }
+              payload.signal_quality = calcularQualidadeSinal(payload.lora_rssi || -100);
+              processarDados(payload, sensorOK, true);
+              // Receptor online pois o ESP32 está enviando (ele que mandou o cache)
+              if (!receptorOnline) atualizarStatusReceptor(true, 'Online');
+              lastReceptorStatusTime = Date.now();
+              // NÃO atualiza lastDataMessageTime nem transmitterActive
+
+            } else {
+              // ── DADO AO VIVO ──
+              lastDataMessageTime = Date.now();
+              secondsWithoutData = 0;
+              if (!receptorOnline) atualizarStatusReceptor(true, 'Online');
+              lastReceptorStatusTime = Date.now();
+              let sensorOK = payload.sensor_ok;
+              const distancia = parseFloat(payload.distance);
+              const percentual = parseInt(payload.percentage);
+              if (sensorOK !== false) {
+                if (distancia < 0 || distancia === 0 || percentual < 0) sensorOK = false;
+                if (ultimoValorValido !== null && (percentual - ultimoValorValido.percentage) < -50) sensorOK = false;
+              }
+              if (sensorOK) {
+                ultimoValorValido = { percentage: percentual, liters: parseInt(payload.liters), distance: distancia, level: parseInt(payload.level) };
+                leiturasConsecutivasErradas = 0;
+              } else {
+                leiturasConsecutivasErradas++;
+              }
+              if (!transmitterActive) {
+                transmitterActive = true;
+                adicionarLog('✅ Sinal do transmissor restaurado');
+                document.getElementById('alertTransmitter').classList.remove('show');
+              }
+              payload.signal_quality = calcularQualidadeSinal(payload.lora_rssi || -100);
+              processarDados(payload, sensorOK, false);
+            }
+          } else if (topic === TOPICS.status) {
+            lastReceptorStatusTime = Date.now();
+            processarStatus(payload);
+          }
+        } catch (e) { console.error('Erro ao processar mensagem:', e); }
+      });
     }
-    
+
+    // ==================== GERENCIAMENTO DE CÓDIGO ====================
+    const STORAGE_CODE_KEY = 'dispositivo_codigo';
+    function iniciarTela() {
+      try {
+        const salvo = localStorage.getItem(STORAGE_CODE_KEY);
+        if (salvo) ativarDispositivo(salvo);
+      } catch(e) {
+        console.warn('localStorage indisponível:', e);
+      }
+      document.getElementById('codigoInput').addEventListener('keydown', e => { if (e.key === 'Enter') confirmarCodigo(); });
+      document.getElementById('codigoInput').addEventListener('input', e => { e.target.value = e.target.value.toUpperCase().replace(/[^A-F0-9]/g, ''); });
+    }
+    function confirmarCodigo() {
+      const input = document.getElementById('codigoInput');
+      const codigo = input.value.trim().toUpperCase().replace(/[^A-F0-9]/g, '');
+      const erroEl = document.getElementById('codigoErro');
+      if (codigo.length !== 6) {
+        input.classList.add('erro'); erroEl.textContent = 'O código tem 6 caracteres (ex: A1B2C3)';
+        setTimeout(() => input.classList.remove('erro'), 600);
+        return;
+      }
+      erroEl.textContent = '';
+      if (document.getElementById('lembrarCodigo').checked) {
+        try { localStorage.setItem(STORAGE_CODE_KEY, codigo); } catch(e) { console.warn('localStorage indisponível:', e); }
+      }
+      ativarDispositivo(codigo);
+    }
+    function ativarDispositivo(codigo) {
+      deviceMac = codigo;
+      TOPICS = {
+        dados: 'caixas/agua/' + codigo + '/dados',
+        status: 'caixas/agua/' + codigo + '/status',
+        comandos: 'caixas/agua/' + codigo + '/comandos'
+      };
+      document.getElementById('deviceBadgeText').textContent = codigo;
+      document.getElementById('codigoScreen').classList.remove('show');
+      document.getElementById('mainContainer').style.display = 'block';
+      connectMQTT();
+    }
+    function trocarDispositivo() {
+      if (!confirm('Trocar de dispositivo? A página será recarregada.')) return;
+      try { localStorage.removeItem(STORAGE_CODE_KEY); } catch(e) { console.warn('localStorage indisponível:', e); }
+      location.reload();
+    }
+    function confirmarReboot() { document.getElementById('modalReboot').classList.add('show'); }
+    function fecharModal() { document.getElementById('modalReboot').classList.remove('show'); }
+    function executarReboot() { fecharModal(); if (client && client.connected) { client.publish(TOPICS.comandos, 'REBOOT'); adicionarLog('🔄 Comando REBOOT enviado'); } }
     function showDetails(tipo) {
       let msg = '';
       switch(tipo) {
@@ -1234,16 +1396,25 @@
       }
       alert(msg);
     }
-    
     function debugData() {
-      console.log('=== DEBUG GSM ===');
-      console.log('megaOnline:', megaOnline);
+      console.log('=== DEBUG ===');
+      console.log('receptorOnline:', receptorOnline, 'transmitterActive:', transmitterActive);
       console.log('lastDataMessageTime:', lastDataMessageTime ? new Date(lastDataMessageTime).toLocaleTimeString() : null);
-      console.log('currentData:', currentData);
-      console.log('historico:', historico);
+      console.log('lastReceptorStatusTime:', lastReceptorStatusTime ? new Date(lastReceptorStatusTime).toLocaleTimeString() : null);
+      console.log('deviceMac:', deviceMac);
     }
 
-    connectMQTT();
+    document.addEventListener('visibilitychange', () => {
+      if (document.hidden) pageHiddenAt = Date.now();
+      else if (pageHiddenAt !== null) {
+        const hiddenFor = Date.now() - pageHiddenAt;
+        if (lastDataMessageTime) lastDataMessageTime += hiddenFor;
+        if (lastReceptorStatusTime) lastReceptorStatusTime += hiddenFor;
+        pageHiddenAt = null;
+      }
+    });
+
+    iniciarTela();
   </script>
 </body>
 </html>
