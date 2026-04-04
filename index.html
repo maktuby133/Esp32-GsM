@@ -852,7 +852,7 @@
 
     // ========== TIMEOUTS AJUSTADOS ==========
     const TRANSMITTER_TIMEOUT = 45000;    // 45 segundos (transmissor envia a cada 30s)
-    const RECEPTOR_TIMEOUT    = 45000;    // 45 segundos (mais rápido para detectar receptor offline)
+    const RECEPTOR_TIMEOUT    = 30000;    // 30s — broker publica LWT em ~22s, dá margem
 
     let client = null;
     let chart = null;
