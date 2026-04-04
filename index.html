@@ -911,6 +911,7 @@
       const receptorItem   = document.getElementById('receptorStatusItem');
       receptorOnline = online;
       if (online) {
+        window._receptorOfflineSince = null;
         receptorStatus.textContent = texto || 'Online';
         receptorStatus.className   = 'status-value online';
         receptorItem.style.background = '';
@@ -931,7 +932,8 @@
           document.getElementById('alertReceptor').classList.remove('show');
         } else {
           // Já teve dados mas perdeu contato
-          const segsOffline = Math.floor((Date.now() - Math.max(lastDataMessageTime, lastReceptorStatusTime || 0)) / 1000);
+          window._receptorOfflineSince = window._receptorOfflineSince || Date.now();
+          const segsOffline = Math.floor((Date.now() - window._receptorOfflineSince) / 1000);
           receptorStatus.textContent = `Offline ${segsOffline}s`;
           receptorStatus.className   = 'status-value offline';
           receptorItem.style.background = 'linear-gradient(135deg,#fee2e2,#fecaca)';
@@ -945,9 +947,11 @@
 
     function processarStatus(payload) {
       if (payload.online === true || payload.heartbeat === true || payload.status === 'online') {
+        lastReceptorStatusTime = Date.now();
         atualizarStatusReceptor(true, 'Online');
       } else if (payload.online === false || payload.status === 'offline') {
-        // online=false vem do LWT — receptor caiu inesperadamente
+        // LWT recebido — receptor caiu, marca offline imediatamente
+        lastReceptorStatusTime = null;
         atualizarStatusReceptor(false);
         adicionarLog('⚠️ Receptor desconectado', 'warning');
       }
@@ -956,12 +960,18 @@
     function iniciarVerificacaoTimeout() {
       if (timeoutCheckInterval) clearInterval(timeoutCheckInterval);
 
-      // Marca o momento em que o dashboard conectou ao broker
-      // Usado para detectar transmissor offline mesmo sem nunca ter recebido dado
+      // Inicializa lastReceptorStatusTime com o momento da conexão.
+      // Assim o timeout do receptor começa a contar imediatamente.
+      // Se o LWT retido chegar (online=false), processarStatus marca offline na hora.
+      // Se o heartbeat retido chegar (online=true), atualiza lastReceptorStatusTime e fica online.
+      // Se não chegar nada em RECEPTOR_TIMEOUT ms, marca offline automaticamente.
       const dashboardConnectTime = Date.now();
+      if (lastReceptorStatusTime === null) {
+        lastReceptorStatusTime = dashboardConnectTime;
+      }
 
-      // Se nunca recebeu nenhum dado, mostra "aguardando" imediatamente
-      if (!lastDataMessageTime && !lastReceptorStatusTime) {
+      // Marca "aguardando" enquanto não há confirmação
+      if (!receptorOnline) {
         atualizarStatusReceptor(false);
       }
 
@@ -998,11 +1008,18 @@
 
         // ── Receptor — usa SOMENTE o heartbeat, independente dos dados do transmissor ──
         if (lastReceptorStatusTime === null) {
-          // Nunca recebeu heartbeat — aguardando
-          if (receptorOnline) atualizarStatusReceptor(false);
+          // LWT confirmou offline — já está marcado, só atualiza o contador
+          if (!receptorOnline) {
+            const segsOffline = Math.floor((agora - (window._receptorOfflineSince || agora)) / 1000);
+            const el = document.getElementById('receptorStatus');
+            if (el && el.textContent.startsWith('Offline')) {
+              el.textContent = `Offline ${segsOffline}s`;
+            }
+          }
         } else {
           const tempoSemHeartbeat = agora - lastReceptorStatusTime;
           if (tempoSemHeartbeat > RECEPTOR_TIMEOUT && receptorOnline) {
+            window._receptorOfflineSince = agora;
             atualizarStatusReceptor(false);
             adicionarLog('⚠️ Receptor sem resposta', 'warning');
           }
@@ -1323,7 +1340,6 @@
               processarDados(payload, sensorOK, false);
             }
           } else if (topic === TOPICS.status) {
-            lastReceptorStatusTime = Date.now();
             processarStatus(payload);
           }
         } catch (e) { console.error('Erro ao processar mensagem:', e); }
