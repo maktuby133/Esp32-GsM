@@ -1006,30 +1006,34 @@
           }
         }
 
-        // ── Receptor — usa SOMENTE o heartbeat, independente dos dados do transmissor ──
+        // ── Receptor — monitora pelo heartbeat ──
+        // lastReceptorStatusTime é atualizado APENAS pelo tópico status (heartbeat/LWT online=true)
+        // É zerado para null quando LWT offline=true chega
         if (lastReceptorStatusTime === null) {
-          // LWT confirmou offline — já está marcado, só atualiza o contador
-          if (!receptorOnline) {
-            const segsOffline = Math.floor((agora - (window._receptorOfflineSince || agora)) / 1000);
-            const el = document.getElementById('receptorStatus');
-            if (el && el.textContent.startsWith('Offline')) {
-              el.textContent = `Offline ${segsOffline}s`;
-            }
+          // LWT confirmou offline — garante que está marcado
+          if (receptorOnline) {
+            window._receptorOfflineSince = agora;
+            atualizarStatusReceptor(false);
+            adicionarLog('⚠️ Receptor desconectado', 'warning');
           }
+          // Atualiza contador
+          const segsOffline = Math.floor((agora - (window._receptorOfflineSince || agora)) / 1000);
+          const el = document.getElementById('receptorStatus');
+          if (el && el.textContent.startsWith('Offline')) el.textContent = `Offline ${segsOffline}s`;
+
         } else {
           const tempoSemHeartbeat = agora - lastReceptorStatusTime;
           if (tempoSemHeartbeat > RECEPTOR_TIMEOUT && receptorOnline) {
+            // Timeout — receptor parou de enviar heartbeat
             window._receptorOfflineSince = agora;
+            lastReceptorStatusTime = null;   // força null para continuar contando
             atualizarStatusReceptor(false);
             adicionarLog('⚠️ Receptor sem resposta', 'warning');
-          }
-          // Atualiza contador de tempo offline no painel
-          if (!receptorOnline) {
+          } else if (!receptorOnline) {
+            // Offline mas lastReceptorStatusTime ainda não foi zerado (transição)
             const segsOffline = Math.floor(tempoSemHeartbeat / 1000);
             const el = document.getElementById('receptorStatus');
-            if (el && el.textContent.startsWith('Offline')) {
-              el.textContent = `Offline ${segsOffline}s`;
-            }
+            if (el && el.textContent.startsWith('Offline')) el.textContent = `Offline ${segsOffline}s`;
           }
         }
       }, 1000);
