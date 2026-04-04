@@ -996,21 +996,19 @@
           }
         }
 
-        // ── Receptor ──
-        const ultimoContato = Math.max(lastDataMessageTime || 0, lastReceptorStatusTime || 0);
-
-        if (ultimoContato === 0) {
-          // Nunca recebeu nada — mantém estado "aguardando"
+        // ── Receptor — usa SOMENTE o heartbeat, independente dos dados do transmissor ──
+        if (lastReceptorStatusTime === null) {
+          // Nunca recebeu heartbeat — aguardando
           if (receptorOnline) atualizarStatusReceptor(false);
         } else {
-          const tempoSemContato = agora - ultimoContato;
-          if (tempoSemContato > RECEPTOR_TIMEOUT && receptorOnline) {
+          const tempoSemHeartbeat = agora - lastReceptorStatusTime;
+          if (tempoSemHeartbeat > RECEPTOR_TIMEOUT && receptorOnline) {
             atualizarStatusReceptor(false);
             adicionarLog('⚠️ Receptor sem resposta', 'warning');
           }
-          // Atualiza o contador de tempo offline continuamente no painel
-          if (!receptorOnline && lastDataMessageTime) {
-            const segsOffline = Math.floor(tempoSemContato / 1000);
+          // Atualiza contador de tempo offline no painel
+          if (!receptorOnline) {
+            const segsOffline = Math.floor(tempoSemHeartbeat / 1000);
             const el = document.getElementById('receptorStatus');
             if (el && el.textContent.startsWith('Offline')) {
               el.textContent = `Offline ${segsOffline}s`;
@@ -1285,10 +1283,6 @@
 
             if (isCached) {
               // ── DADO EM CACHE ──
-              // Mostra os valores na tela imediatamente mas NÃO atualiza
-              // os timers de timeout nem marca o transmissor como ativo.
-              // O painel continuará monitorando normalmente e vai mostrar
-              // "sem sinal" quando o timeout expirar (transmissor desligado).
               let sensorOK = payload.sensor_ok;
               const distancia = parseFloat(payload.distance);
               const percentual = parseInt(payload.percentage);
@@ -1300,17 +1294,13 @@
               }
               payload.signal_quality = calcularQualidadeSinal(payload.lora_rssi || -100);
               processarDados(payload, sensorOK, true);
-              // Receptor online pois o ESP32 está enviando (ele que mandou o cache)
-              if (!receptorOnline) atualizarStatusReceptor(true, 'Online');
-              lastReceptorStatusTime = Date.now();
-              // NÃO atualiza lastDataMessageTime nem transmitterActive
+              // NÃO atualiza lastDataMessageTime, lastReceptorStatusTime nem transmitterActive
 
             } else {
               // ── DADO AO VIVO ──
               lastDataMessageTime = Date.now();
               secondsWithoutData = 0;
-              if (!receptorOnline) atualizarStatusReceptor(true, 'Online');
-              lastReceptorStatusTime = Date.now();
+              // NÃO atualiza lastReceptorStatusTime — apenas o heartbeat faz isso
               let sensorOK = payload.sensor_ok;
               const distancia = parseFloat(payload.distance);
               const percentual = parseInt(payload.percentage);
